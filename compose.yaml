@@ -1,0 +1,175 @@
+name: leetbug
+
+x-backend: &backend
+  image: leetbug-backend:local
+  build: ./backend
+  environment: &backend-env
+    DATABASE_URL: postgresql+psycopg://leetbug:${POSTGRES_PASSWORD:-leetbug-local-only}@postgres:5432/leetbug
+    REDIS_URL: redis://redis:6379/0
+    ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-http://localhost:8080,http://localhost:5173}
+    COOKIE_SECURE: ${COOKIE_SECURE:-false}
+    SEED_DEMO_USER: ${SEED_DEMO_USER:-false}
+    DEMO_PASSWORD: ${DEMO_PASSWORD:-DebugBetter2026!}
+    AI_PROVIDER: ${AI_PROVIDER:-disabled}
+    AI_API_KEY: ${AI_API_KEY:-}
+    AI_MODEL: ${AI_MODEL:-qwen2.5-coder:7b}
+    AI_BASE_URL: ${AI_BASE_URL:-}
+    CHROMA_HOST: chroma
+    CHROMA_PORT: 8000
+    EMBEDDING_BASE_URL: ${EMBEDDING_BASE_URL:-}
+    EMBEDDING_MODEL: ${EMBEDDING_MODEL:-}
+  networks: [app]
+  init: true
+  security_opt: [no-new-privileges:true]
+  restart: unless-stopped
+
+services:
+  web:
+    build: ./frontend
+    ports: ["${APP_PORT:-8080}:8080"]
+    depends_on:
+      api: {condition: service_healthy}
+    networks: [app]
+    restart: unless-stopped
+    security_opt: [no-new-privileges:true]
+    healthcheck:
+      test: [CMD, wget, -q, --spider, http://127.0.0.1:8080/health]
+      interval: 15s
+      timeout: 3s
+      retries: 5
+
+  api:
+    <<: *backend
+    depends_on:
+      migrate: {condition: service_completed_successfully}
+      redis: {condition: service_healthy}
+    healthcheck:
+      test: [CMD, python, -c, "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/ready')"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  migrate:
+    <<: *backend
+    command: [sh, -c, "alembic upgrade head && python -m app.seed"]
+    depends_on:
+      postgres: {condition: service_healthy}
+    restart: "no"
+
+  worker:
+    <<: *backend
+    environment:
+      <<: *backend-env
+      DOCKER_HOST: tcp://sandbox-daemon:2375
+    command: [celery, -A, app.tasks.celery, worker, --loglevel=info, --concurrency=2, --max-tasks-per-child=50]
+    networks: [app, execution]
+    depends_on:
+      migrate: {condition: service_completed_successfully}
+      redis: {condition: service_healthy}
+      sandbox-build: {condition: service_completed_successfully}
+      docs-index: {condition: service_completed_successfully}
+    healthcheck:
+      test: [CMD-SHELL, "celery -A app.tasks.celery inspect ping -d celery@$$HOSTNAME --timeout 5 | grep -q pong"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+
+  scheduler:
+    <<: *backend
+    environment:
+      <<: *backend-env
+      DOCKER_HOST: tcp://sandbox-daemon:2375
+    command: [celery, -A, app.tasks.celery, beat, --loglevel=info, --schedule=/tmp/celerybeat-schedule]
+    networks: [app, execution]
+    depends_on:
+      worker: {condition: service_started}
+
+  docs-index:
+    <<: *backend
+    command: [python, -m, app.ingest_docs]
+    depends_on:
+      chroma: {condition: service_started}
+    restart: on-failure:5
+
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: leetbug
+      POSTGRES_USER: leetbug
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-leetbug-local-only}
+    volumes: [postgres-data:/var/lib/postgresql/data]
+    networks: [app]
+    restart: unless-stopped
+    healthcheck:
+      test: [CMD-SHELL, "pg_isready -U leetbug -d leetbug"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  redis:
+    image: redis:7.4-alpine
+    command: [redis-server, --appendonly, "yes", --maxmemory, 256mb, --maxmemory-policy, noeviction]
+    volumes: [redis-data:/data]
+    networks: [app]
+    restart: unless-stopped
+    healthcheck:
+      test: [CMD, redis-cli, ping]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  chroma:
+    image: chromadb/chroma:1.5.5
+    environment:
+      ANONYMIZED_TELEMETRY: "False"
+    volumes: [chroma-data:/data]
+    networks: [app]
+    restart: unless-stopped
+
+  # A dedicated nested daemon; the host socket is never mounted into an app service.
+  # Only trusted execution workers can reach this daemon. Never publish port 2375.
+  sandbox-daemon:
+    image: docker:29-dind
+    privileged: true
+    environment:
+      DOCKER_TLS_CERTDIR: ""
+    command: [dockerd, --host=tcp://0.0.0.0:2375, --tls=false, --log-level=warn]
+    volumes: [sandbox-data:/var/lib/docker]
+    networks: [execution]
+    restart: unless-stopped
+    healthcheck:
+      test: [CMD, docker, -H, tcp://localhost:2375, info]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+      start_period: 15s
+
+  sandbox-build:
+    <<: *backend
+    environment:
+      DOCKER_HOST: tcp://sandbox-daemon:2375
+    networks: [execution]
+    command: [python, scripts/build_sandbox.py]
+    depends_on:
+      sandbox-daemon: {condition: service_healthy}
+    restart: "no"
+
+  ollama:
+    image: ollama/ollama:0.17.7
+    profiles: [ollama]
+    volumes: [ollama-data:/root/.ollama]
+    networks: [app]
+    restart: unless-stopped
+
+networks:
+  app:
+  execution:
+
+volumes:
+  postgres-data:
+  redis-data:
+  chroma-data:
+  sandbox-data:
+  ollama-data:
+
