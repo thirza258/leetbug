@@ -4,7 +4,7 @@ from datetime import timedelta
 
 from fastapi import Depends, HTTPException, Request, Response
 from pwdlib import PasswordHash
-from sqlalchemy import delete, select
+from sqlalchemy import delete
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 

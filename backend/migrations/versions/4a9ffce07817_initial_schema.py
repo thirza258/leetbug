@@ -1,7 +1,6 @@
 """initial schema"""
-from alembic import op
 import sqlalchemy as sa
-
+from alembic import op
 
 revision = '4a9ffce07817'
 down_revision = None

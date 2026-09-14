@@ -4,7 +4,7 @@ from datetime import timedelta
 
 import docker
 from celery import Celery
-from sqlalchemy import select, update
+from sqlalchemy import update
 
 from app.auth import utc
 from app.config import settings

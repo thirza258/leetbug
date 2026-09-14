@@ -6,12 +6,30 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.analytics import TERMINAL, leaderboard_rows, personal_stats, platform_stats
-from app.auth import COOKIE, DUMMY_HASH, current_user, hash_token, optional_user, passwords, public_user, record_activity, start_session
+from app.auth import (
+    COOKIE,
+    DUMMY_HASH,
+    current_user,
+    hash_token,
+    optional_user,
+    passwords,
+    public_user,
+    record_activity,
+    start_session,
+)
 from app.config import settings
 from app.db import get_db
 from app.limits import rate_limit
 from app.models import AuthSession, Bookmark, Discussion, Hint, Problem, Reply, Submission, User, Vote
-from app.schemas import DiscussionCreate, HintCreate, Login, ProfileUpdate, Register, ReplyCreate, SubmissionCreate
+from app.schemas import (
+    DiscussionCreate,
+    HintCreate,
+    Login,
+    ProfileUpdate,
+    Register,
+    ReplyCreate,
+    SubmissionCreate,
+)
 from app.tasks import evaluate, hint_task
 
 router = APIRouter(prefix="/api")
