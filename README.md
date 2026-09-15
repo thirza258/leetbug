@@ -27,7 +27,8 @@ For a different port, change both `APP_PORT` and the corresponding origin in `AL
 
 ## What is included
 
-- 100 executable case studies: 25 each for runtime, logic, business flow, and edge cases, with 134 language variants and 621 public/hidden test cases. Each case includes buggy starter code, three progressive hints, and a reference solution. The catalog has search, tags, category/language/difficulty/progress filters, ordering, five pages of problems, and bookmarks.
+- 101 executable case studies: 25 each for runtime, logic, business flow, and edge cases, plus a system design challenge, with 136 language variants and 636 public/hidden test cases. Each case includes buggy starter code, three progressive hints, and a reference solution. The catalog has search, tags, category/language/difficulty/progress filters, ordering, pagination, and bookmarks.
+- Three system design courses at `/courses`, with nine lessons on architecture selection, data and caching, and queues and reliability. Every lesson includes a worked example, a knowledge check with answer feedback, and an official reference. Completion is saved in this browser separately for guests and each signed-in user; it does not sync across devices. Courses link directly to executable practice cases.
 - A simple interface with persistent light and dark themes, matching Monaco and notifications. Contextual actions open a case, resume a submission, request guidance, share a fix, and continue to the next challenge.
 - Locally bundled Monaco with highlighting, find, folding, bracket matching, and completion; language-specific drafts survive reloads. No Monaco CDN dependency.
 - Manual and AI-assist modes, public runs, full submissions, queued/running/completed feedback, readable errors, and per-case state assertions.

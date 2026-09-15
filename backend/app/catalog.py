@@ -4523,3 +4523,134 @@ CATALOG.extend([
          "After processing an event, repeatedly move the front waiting user into members while capacity remains."], 25,
     ),
 ])
+
+
+def _design_option(identifier, *, capacity=1000, latency=100, cost=300, ops=2, strong=True):
+    return {"id": identifier, "capacity_rps": capacity, "latency_ms": latency,
+            "monthly_cost": cost, "ops": ops, "strong_consistency": strong}
+
+
+def _design_input(designs, **requirements):
+    return {"requirements": {"peak_rps": 1000, "max_latency_ms": 100, "monthly_budget": 500,
+                             "max_ops": 3, "needs_strong_consistency": True, **requirements},
+            "designs": designs}
+
+
+CATALOG.append(problem(
+    "choosing-the-right-system-design", "Choosing the right system design",
+    "A team's architecture selector always recommends the design with the highest throughput. "
+    "It keeps proposing systems the team cannot afford or operate, and sometimes sacrifices required consistency. "
+    "Repair the selector so every recommendation fits the workload before comparing cost. "
+    "The supplied estimates describe these hypothetical deployments, not universal properties of an architecture style.",
+    "system_design", "medium", ["system-design", "architecture", "trade-offs", "constraints"],
+    ["Input.requirements contains peak_rps, max_latency_ms, monthly_budget, max_ops, and needs_strong_consistency (a boolean).",
+     "Input.designs contains up to 1,000 candidates, each with a unique id (1 to 50 lowercase ASCII letters or hyphens), capacity_rps, latency_ms, monthly_cost, ops, and strong_consistency (a boolean). Numeric fields are integers from 0 to 1,000,000. ops is the staffing effort required; max_ops is the team's available effort in the same units.",
+     "A design is feasible only when capacity_rps >= peak_rps, latency_ms <= max_latency_ms, monthly_cost <= monthly_budget, and ops <= max_ops. Equality is allowed for every limit.",
+     "When needs_strong_consistency is true, strong_consistency must also be true. When it is false, either consistency option is allowed.",
+     "Among feasible designs, choose the lowest monthly_cost, then the lowest ops, then the alphabetically smallest id. Return {design: id}, or {design: null} when none is feasible. Do not change the input.",
+     "These ranking rules are this team's stated policy. In a real review, validate estimates under representative load and document the trade-offs before choosing."],
+    {"python": '''
+        def solve(data):
+            if not data["designs"]:
+                return {"design": None}
+            best = max(data["designs"], key=lambda design: design["capacity_rps"])
+            return {"design": best["id"]}
+    ''', "javascript": '''
+        function solve(data) {
+          let best = null;
+          for (const design of data.designs) {
+            if (!best || design.capacity_rps > best.capacity_rps) best = design;
+          }
+          return { design: best ? best.id : null };
+        }
+        module.exports = { solve };
+    '''},
+    {"python": '''
+        def solve(data):
+            requirements = data["requirements"]
+            best = None
+            for design in data["designs"]:
+                if (design["capacity_rps"] < requirements["peak_rps"]
+                        or design["latency_ms"] > requirements["max_latency_ms"]
+                        or design["monthly_cost"] > requirements["monthly_budget"]
+                        or design["ops"] > requirements["max_ops"]
+                        or (requirements["needs_strong_consistency"]
+                            and not design["strong_consistency"])):
+                    continue
+                rank = (design["monthly_cost"], design["ops"], design["id"])
+                if best is None or rank < best:
+                    best = rank
+            return {"design": best[2] if best is not None else None}
+    ''', "javascript": '''
+        function solve(data) {
+          const r = data.requirements;
+          let best = null;
+          for (const d of data.designs) {
+            if (d.capacity_rps < r.peak_rps || d.latency_ms > r.max_latency_ms ||
+                d.monthly_cost > r.monthly_budget || d.ops > r.max_ops ||
+                (r.needs_strong_consistency && !d.strong_consistency)) continue;
+            if (!best || d.monthly_cost < best.monthly_cost ||
+                (d.monthly_cost === best.monthly_cost && (d.ops < best.ops ||
+                  (d.ops === best.ops && d.id < best.id)))) best = d;
+          }
+          return { design: best ? best.id : null };
+        }
+        module.exports = { solve };
+    '''},
+    [case("Fit a small team's workload", _design_input([
+        _design_option("microservices", capacity=20000, cost=450, ops=8),
+        _design_option("modular-monolith", capacity=2000),
+        _design_option("managed-workers", capacity=3000, cost=400),
+    ]), {"design": "modular-monolith"}),
+     case("Consistency is a requirement", _design_input([
+         _design_option("replica-reads", capacity=8000, cost=100, strong=False),
+         _design_option("primary-reads", capacity=2000),
+     ]), {"design": "primary-reads"}),
+     case("Exact limits are feasible", _design_input([
+         _design_option("at-the-limits", cost=500, ops=3),
+     ]), {"design": "at-the-limits"}, True),
+     case("Reject insufficient capacity", _design_input([
+         _design_option("undersized", capacity=999, cost=100), _design_option("sized"),
+     ]), {"design": "sized"}, True),
+     case("Reject excessive latency", _design_input([
+         _design_option("slow", latency=101, cost=100), _design_option("responsive"),
+     ]), {"design": "responsive"}, True),
+     case("Budget cannot be exceeded", _design_input([
+         _design_option("over-budget", cost=501),
+     ]), {"design": None}, True),
+     case("Staffing cannot be exceeded", _design_input([
+         _design_option("too-much-ops", ops=4),
+     ]), {"design": None}, True),
+     case("Choose lowest feasible cost", _design_input([
+         _design_option("expensive", capacity=9000, cost=400, ops=1),
+         _design_option("affordable", cost=200, ops=3),
+     ]), {"design": "affordable"}, True),
+     case("Break cost ties by effort", _design_input([
+         _design_option("aaa", ops=3), _design_option("zzz", ops=1),
+     ]), {"design": "zzz"}, True),
+     case("Break remaining ties by ID", _design_input([
+         _design_option("zeta"), _design_option("alpha"),
+     ]), {"design": "alpha"}, True),
+     case("Stale reads are acceptable here", _design_input([
+         _design_option("strong"), _design_option("eventual", cost=100, strong=False),
+     ], needs_strong_consistency=False), {"design": "eventual"}, True),
+     case("Strong consistency is also allowed when optional", _design_input([
+         _design_option("strong"),
+     ], needs_strong_consistency=False), {"design": "strong"}, True),
+     case("No candidates", _design_input([]), {"design": None}, True),
+     case("No consistent candidate", _design_input([
+         _design_option("eventual-only", strong=False),
+     ]), {"design": None}, True),
+     case("Zero is a valid limit", _design_input([
+         _design_option("zero", capacity=0, latency=0, cost=0, ops=0),
+         _design_option("paid", capacity=100, latency=0, cost=1, ops=0),
+     ], peak_rps=0, max_latency_ms=0, monthly_budget=0, max_ops=0), {"design": "zero"}, True)],
+    "Separate feasibility from preference: a cheap or fast design still fails if any mandatory requirement is missing. "
+    "Filter using all five gates, then compare (monthly_cost, ops, id) in that order. A single pass keeps the best "
+    "feasible candidate without sorting or changing the input. Return null when the team must revise its candidates "
+    "or requirements. Time O(n), extra space O(1), treating bounded IDs as constant size.",
+    ["Does the highest-throughput option meet every requirement, including the team's operating capacity?",
+     "Check feasibility before ranking. Strong consistency is a one-way requirement: it is allowed even when optional.",
+     "Skip any candidate that misses a limit, then retain the smallest (monthly_cost, ops, id) tuple. Handle an empty feasible set."],
+    20,
+))

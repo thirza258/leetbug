@@ -1,5 +1,5 @@
 export type Language = 'python' | 'java' | 'javascript' | 'cpp' | 'go';
-export type Category = 'runtime' | 'logic' | 'business' | 'edge';
+export type Category = 'runtime' | 'logic' | 'business' | 'edge' | 'system_design';
 export type Mode = 'manual' | 'ai';
 export type Status = 'queued' | 'running' | 'passed' | 'failed' | 'runtime_error' | 'time_limit' | 'memory_limit' | 'output_limit' | 'error';
 export interface User { id: string; email: string; username: string; bio: string; created_at: string }

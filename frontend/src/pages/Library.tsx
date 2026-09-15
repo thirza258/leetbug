@@ -42,7 +42,7 @@ export default function Library() {
     } catch (error) { toast.error((error as Error).message); }
   }
   return <div className="page library-page">
-    <div className="library-heading"><div><h1>Problem library</h1><p>Practice debugging real code. Choose a case, make a fix, and test it.</p></div>
+    <div className="library-heading"><div><h1>Problem library</h1><p>Practice debugging and system design. Choose a case, make a fix, and test it.</p></div>
       <div className="page-actions"><Link className="button primary" to={`/problems/${query.data?.items.find(problem => problem.status !== 'solved')?.slug || 'missing-last-item'}`}>{user ? 'Continue debugging' : 'Start a case'}<ArrowRight size={16} /></Link><Link className="button secondary" to={user ? '/submissions' : '/register'}>{user ? 'View submissions' : 'Create account'}</Link></div>
     </div>
     <div className="category-grid">{(Object.entries(categories) as [Category, typeof categories[Category]][]).map(([key, category]) => {
@@ -62,6 +62,6 @@ export default function Library() {
       </tr>)}</tbody></table></div>}
       <div className="catalog-footer"><span>{query.data?.total ?? 0} case studies</span><div className="pagination"><button className="icon-button" aria-label="Previous page" disabled={Number(params.get('page') || 1) <= 1} onClick={() => filter('page', String(Number(params.get('page') || 1) - 1))}><ChevronLeft size={16} /></button><span>{params.get('page') || 1}</span><button className="icon-button" aria-label="Next page" disabled={!query.data || query.data.page * query.data.limit >= query.data.total} onClick={() => filter('page', String(Number(params.get('page') || 1) + 1))}><ChevronRight size={16} /></button></div></div>
     </section>
-    <div className="catalog-actions"><div><strong>Need help getting started?</strong><p>Learn the workspace or work through a question with the community.</p></div><div className="page-actions"><Link className="button secondary" to="/guide">Read the guide</Link><Link className="button secondary" to="/discussions/new">Ask a question <ArrowRight size={15} /></Link></div></div>
+    <div className="catalog-actions"><div><strong>Build your system design skills</strong><p>Learn to choose an architecture, protect data, and handle failures.</p></div><div className="page-actions"><Link className="button secondary" to="/courses">Explore courses <ArrowRight size={15} /></Link><Link className="button secondary" to="/guide">Read the guide</Link></div></div>
   </div>;
 }

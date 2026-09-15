@@ -1,4 +1,4 @@
-import { ArrowUpRight, BarChart3, BookOpen, ChevronRight, CircleHelp, LayoutGrid, LogOut, Menu, MessageSquare, Trophy, X } from 'lucide-react';
+import { ArrowUpRight, BarChart3, BookOpen, ChevronRight, CircleHelp, GraduationCap, LayoutGrid, LogOut, Menu, MessageSquare, Trophy, X } from 'lucide-react';
 import { NavLink, Outlet, useLocation } from 'react-router-dom';
 import { useState } from 'react';
 import { toast } from 'sonner';
@@ -11,6 +11,7 @@ import ThemeToggle from './ThemeToggle';
 
 const links = [
   { to: '/', label: 'Problem library', icon: LayoutGrid },
+  { to: '/courses', label: 'Courses', icon: GraduationCap },
   { to: '/progress', label: 'My progress', icon: BarChart3 },
   { to: '/submissions', label: 'Submissions', icon: BookOpen },
   { to: '/leaderboard', label: 'Leaderboard', icon: Trophy },
@@ -22,7 +23,7 @@ export default function Layout() {
   const [open, setOpen] = useState(false);
   const location = useLocation();
   const workspace = location.pathname.startsWith('/problems/');
-  const title = workspace ? 'Debugging workspace' : links.find(link => link.to === location.pathname)?.label || 'Community';
+  const title = workspace ? 'Debugging workspace' : location.pathname.startsWith('/courses') ? 'Courses' : links.find(link => link.to === location.pathname)?.label || 'Community';
   return <div className={`app-shell ${workspace ? 'workspace-shell' : ''}`}>
     <a href="#main-content" className="skip-link">Skip to content</a>
     {open && <button className="sidebar-backdrop" aria-label="Close navigation" onClick={() => setOpen(false)} />}

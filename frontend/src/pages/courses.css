@@ -1,0 +1,86 @@
+.course-intro { display: flex; align-items: center; gap: 12px; margin: 25px 0; color: var(--muted); font-size: 14px; }
+.course-intro svg { color: var(--purple); flex-shrink: 0; }
+.course-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px; }
+.course-card { display: flex; flex-direction: column; padding: 24px; }
+.course-card-top { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-bottom: 22px; }
+.course-level { color: var(--muted); font-size: 12px; }
+.course-card h2 { font-size: 22px; line-height: 1.3; margin-bottom: 13px; }
+.course-card h2 a:hover { color: var(--purple); }
+.course-card > p { color: var(--muted); font-size: 14px; }
+.course-meta { display: flex; flex-wrap: wrap; gap: 8px 15px; color: var(--muted); margin: 20px 0; font-size: 12px; }
+.course-meta span { display: flex; align-items: center; gap: 6px; }
+.course-outcomes { list-style: none; padding: 0; margin: 0 0 24px; }
+.course-outcomes li { display: flex; align-items: flex-start; gap: 9px; font-size: 13px; line-height: 1.6; margin: 10px 0; }
+.course-outcomes svg { color: var(--green); flex-shrink: 0; margin-top: 3px; }
+.course-card-bottom { margin-top: auto; }
+.course-progress { margin: 0 0 20px; }
+.course-progress > span { display: block; color: var(--muted); font-size: 12px; margin-bottom: 9px; }
+.course-progress progress { display: block; appearance: none; border: 0; height: 6px; width: 100%; border-radius: 20px; overflow: hidden; background: var(--panel-soft); }
+.course-progress progress::-webkit-progress-bar { background: var(--panel-soft); }
+.course-progress progress::-webkit-progress-value { background: var(--purple); border-radius: 20px; }
+.course-progress progress::-moz-progress-bar { background: var(--purple); border-radius: 20px; }
+.course-storage-note { color: var(--muted); font-size: 12px; line-height: 1.7; margin: 20px 0; }
+.course-practice-banner { display: flex; align-items: center; justify-content: space-between; gap: 24px; margin-top: 28px; }
+.course-practice-banner h2 { margin: 10px 0; }
+.course-practice-banner p { font-size: 14px; color: var(--muted); }
+.course-practice-banner .button { flex-shrink: 0; }
+.course-back { margin-bottom: 24px; }
+.course-layout { display: grid; grid-template-columns: 260px minmax(0, 1fr); gap: 25px; margin-top: 32px; align-items: start; }
+.course-outline { position: sticky; top: 90px; padding: 20px; }
+.course-outline h2 { font-size: 16px; margin-bottom: 20px; }
+.course-outline .course-storage-note { margin-bottom: 0; }
+.course-outline nav { display: flex; flex-direction: column; gap: 6px; }
+.lesson-link { display: flex; align-items: flex-start; gap: 11px; padding: 13px 10px; border: 1px solid transparent; border-radius: 6px; font-size: 13px; line-height: 1.5; }
+.lesson-link:hover { background: var(--panel-soft); }
+.lesson-link.active { background: var(--selected); border-color: var(--purple); }
+.lesson-link > span:first-child { width: 20px; flex-shrink: 0; padding-top: 1px; }
+.lesson-link small { display: block; color: var(--muted); margin-top: 3px; font-size: 11px; }
+.lesson-main { min-width: 0; }
+.lesson-content { padding: 32px; }
+.lesson-content > h2 { font-size: 28px; margin: 10px 0 26px; }
+.lesson-content section { margin: 24px 0; }
+.lesson-content h3 { font-size: 17px; margin: 0 0 9px; }
+.lesson-content p { font-size: 15px; line-height: 1.85; }
+.lesson-example { background: var(--panel-soft); border-left: 3px solid var(--purple); padding: 20px; border-radius: 0 6px 6px 0; }
+.lesson-example h3 { margin-top: 10px; }
+.lesson-source { font-size: 12px; line-height: 1.7; }
+.lesson-source svg { flex-shrink: 0; }
+.lesson-checkpoint { margin-top: 20px; }
+.lesson-checkpoint h2 { font-size: 19px; margin-bottom: 20px; }
+.checkpoint-completed { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--green); margin-bottom: 16px; }
+.lesson-checkpoint fieldset { min-width: 0; padding: 0; margin: 0 0 18px; border: 0; }
+.lesson-checkpoint legend { margin-bottom: 16px; font-size: 15px; line-height: 1.7; }
+.checkpoint-option { flex-direction: row; align-items: flex-start; padding: 14px; margin: 10px 0; border: 1px solid var(--line); border-radius: 7px; cursor: pointer; font-weight: 400; line-height: 1.7; }
+.checkpoint-option:hover { background: var(--panel-soft); }
+.checkpoint-option.selected { background: var(--selected); border-color: var(--purple); }
+.checkpoint-option input { width: 16px; height: 16px; padding: 0; margin: 3px 0 0; flex-shrink: 0; accent-color: var(--purple); }
+.checkpoint-option:focus-within { outline: 2px solid var(--purple); outline-offset: 2px; }
+.checkpoint-feedback { padding: 18px; border-radius: 7px; margin-top: 20px; font-size: 14px; }
+.checkpoint-feedback.correct { background: var(--positive-soft); }
+.checkpoint-feedback.incorrect { background: var(--warning-soft); }
+.checkpoint-feedback p { margin-top: 7px; }
+.lesson-pagination { display: flex; flex-wrap: wrap; gap: 12px; margin: 20px 0; }
+.lesson-pagination .primary { margin-left: auto; }
+.course-complete { margin: 20px 0; border-color: var(--green); }
+.course-complete h2 { margin: 12px 0 8px; }
+.course-complete p, .course-practice p { font-size: 14px; color: var(--muted); margin: 8px 0 16px; }
+.course-complete .text-link { font-size: 13px; }
+.course-practice h2 { font-size: 18px; }
+.practice-link { display: flex; justify-content: space-between; align-items: center; gap: 15px; border-top: 1px solid var(--line); padding: 15px 0; font-size: 14px; }
+.practice-link:last-child { padding-bottom: 0; }
+.practice-link:hover { color: var(--purple); }
+.practice-link svg { flex-shrink: 0; }
+@media (max-width: 1150px) {
+  .course-grid { grid-template-columns: 1fr; }
+  .course-layout { grid-template-columns: 220px minmax(0, 1fr); gap: 18px; }
+  .course-card h2 { font-size: 23px; }
+  .course-practice-banner { align-items: flex-start; flex-direction: column; }
+}
+@media (max-width: 850px) {
+  .course-layout { grid-template-columns: minmax(0, 1fr); }
+  .course-outline { position: static; }
+  .lesson-content { padding: 22px; }
+  .lesson-content > h2 { font-size: 24px; }
+  .lesson-content p { font-size: 14px; }
+  .lesson-example { padding: 16px; }
+}

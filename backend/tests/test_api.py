@@ -1,5 +1,6 @@
 from datetime import timedelta
 
+import pytest
 from sqlalchemy import delete, select
 
 from app import seed, tasks
@@ -44,21 +45,24 @@ def test_origin_and_payload_limits(client):
 
 def test_catalog_filters_and_no_private_oracles(client, member):
     response = client.get("/api/problems").json()
-    assert response["total"] == len(CATALOG) == 100
+    assert response["total"] == len(CATALOG) == 101
     assert len(response["items"]) == 20
     second_page = client.get("/api/problems?page=2").json()
     assert len(second_page["items"]) == 20
     assert second_page["items"][-1]["slug"] == "shipment-transitions"
     assert not {row["id"] for row in response["items"]} & {row["id"] for row in second_page["items"]}
-    pages = [response, second_page] + [client.get(f"/api/problems?page={page}").json() for page in range(3, 6)]
-    assert all(len(page["items"]) == 20 for page in pages)
+    page_count = (len(CATALOG) + 19) // 20
+    pages = [response, second_page] + [client.get(f"/api/problems?page={page}").json() for page in range(3, page_count + 1)]
+    assert all(len(page["items"]) == 20 for page in pages[:-1])
     assert [row["slug"] for page in pages for row in page["items"]] == [item["slug"] for item in CATALOG]
-    assert pages[-1]["items"][-1]["id"] == 100
-    assert pages[-1]["items"][-1]["slug"] == "waitlist-promotion"
-    assert client.get("/api/problems?page=6").json()["items"] == []
-    assert client.get("/api/meta").json()["problem_count"] == 100
+    assert pages[4]["items"][-1]["slug"] == "waitlist-promotion"
+    assert pages[-1]["items"][-1]["id"] == len(CATALOG)
+    assert pages[-1]["items"][-1]["slug"] == "choosing-the-right-system-design"
+    assert client.get(f"/api/problems?page={page_count + 1}").json()["items"] == []
+    assert client.get("/api/meta").json()["problem_count"] == len(CATALOG)
     for category in ("runtime", "logic", "business", "edge"):
         assert client.get(f"/api/problems?category={category}").json()["total"] == 25
+    assert client.get("/api/problems?category=system_design").json()["total"] == 1
     assert client.get("/api/problems?category=business&language=python&difficulty=medium").json()["total"] == 8
     assert client.get("/api/problems?q=overflow").json()["total"] == 1
     assert client.get("/api/problems?language=go").json()["total"] == 18
@@ -80,28 +84,42 @@ def test_catalog_filters_and_no_private_oracles(client, member):
         assert len(expanded["public_tests"]) == sum(not test["hidden"] for test in item["tests"])
 
 
-def test_catalog_upgrade_preserves_existing_content_and_progress(db_factory, client, member):
-    submission_id = create_attempt(db_factory, member, status="passed", problem_id=40)
+@pytest.mark.parametrize("original_count", [40, 100])
+def test_catalog_upgrade_preserves_existing_content_and_progress(db_factory, client, member, original_count):
+    submission_id = create_attempt(db_factory, member, status="passed", problem_id=original_count)
     with db_factory() as db:
-        # Reproduce an installation with the previous 40-problem catalog.
-        db.execute(delete(Problem).where(Problem.id > 40))
-        db.get(Problem, 40).title = "Locally edited shipment case"
-        db.add(Bookmark(user_id=member["id"], problem_id=40))
+        # Reproduce installations from both previous catalog versions.
+        db.execute(delete(Problem).where(Problem.id > original_count))
+        db.get(Problem, original_count).title = "Locally edited case"
+        db.add(Bookmark(user_id=member["id"], problem_id=original_count))
         db.commit()
         original = [(p.id, p.slug, p.title) for p in db.scalars(select(Problem).order_by(Problem.id))]
     seed.seed()
     seed.seed()
     with db_factory() as db:
         problems = list(db.scalars(select(Problem).order_by(Problem.id)))
-        assert len(problems) == 100
-        assert [(p.id, p.slug, p.title) for p in problems[:40]] == original
-        assert [(p.id, p.slug) for p in problems[40:]] == [
-            (index, item["slug"]) for index, item in enumerate(CATALOG[40:], 41)
+        assert len(problems) == len(CATALOG)
+        assert [(p.id, p.slug, p.title) for p in problems[:original_count]] == original
+        assert [(p.id, p.slug) for p in problems[original_count:]] == [
+            (index, item["slug"]) for index, item in enumerate(CATALOG[original_count:], original_count + 1)
         ]
         attempt = db.get(Submission, submission_id)
-        assert attempt.problem_id == 40 and attempt.status == "passed"
-        assert db.get(Bookmark, (member["id"], 40)) is not None
-    assert client.get("/api/problems?status=solved").json()["items"][0]["id"] == 40
+        assert attempt.problem_id == original_count and attempt.status == "passed"
+        assert db.get(Bookmark, (member["id"], original_count)) is not None
+    assert client.get("/api/problems?status=solved").json()["items"][0]["id"] == original_count
+
+
+def test_system_design_discovery_and_progress(client, member, db_factory):
+    result = client.get("/api/problems?category=system_design&language=javascript&difficulty=medium&q=architecture").json()
+    assert result["total"] == 1
+    problem = result["items"][0]
+    assert problem["slug"] == "choosing-the-right-system-design"
+    create_attempt(db_factory, member, status="passed", problem_id=problem["id"])
+    stats = client.get("/api/analytics/me").json()
+    assert {"category": "system_design", "total": 1, "solved": 1} in stats["categories"]
+    assert sum(category["total"] for category in stats["categories"]) == stats["total_problems"]
+    solutions = client.get(f"/api/problems/{problem['slug']}/solutions").json()
+    assert set(solutions["solutions"]) == {"python", "javascript"}
 
 
 def test_solution_unlock_requires_full_submission_and_share_opt_in(client, member, db_factory):

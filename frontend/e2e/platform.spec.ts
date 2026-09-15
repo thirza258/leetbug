@@ -11,7 +11,7 @@ test('catalog filtering, navigation, and mobile layout', async ({ page }) => {
   await page.reload();
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
   await expect(page.locator('.problem-table tbody tr')).toHaveCount(20);
-  await expect(page.locator('.catalog-footer')).toContainText('100 case studies');
+  await expect(page.locator('.catalog-footer')).toContainText('101 case studies');
   await page.screenshot({ path: '../artifacts/library-dark.png', fullPage: true });
   await page.getByRole('button', { name: 'Switch to light theme' }).click();
   const caseNumbers = await page.locator('.problem-number').allTextContents();
@@ -23,7 +23,13 @@ test('catalog filtering, navigation, and mobile layout', async ({ page }) => {
     caseNumbers.push(...await page.locator('.problem-number').allTextContents());
   }
   expect(new Set(caseNumbers).size).toBe(100);
+  await page.getByRole('button', { name: 'Next page', exact: true }).click();
+  await expect(page).toHaveURL('/?page=6');
+  await expect(page.locator('.problem-table tbody tr')).toHaveCount(1);
+  await expect(page.getByRole('link', { name: /Choosing the right system design/ })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Next page', exact: true })).toBeDisabled();
+  await page.getByRole('button', { name: 'Previous page', exact: true }).click();
+  await expect(page).toHaveURL('/?page=5');
   await page.setViewportSize({ width: 390, height: 844 });
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
   await page.screenshot({ path: '../artifacts/library-expanded-mobile.png', fullPage: true, animations: 'disabled' });

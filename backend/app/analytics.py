@@ -43,14 +43,14 @@ def personal_stats(db, user):
     daily = Counter(row.created_at.date() for row in rows if row.kind == "submit" and row.status in TERMINAL)
     categories = [{"category": category, "solved": sum(p.id in solved and p.category == category for p in problems),
                    "total": sum(p.category == category for p in problems)}
-                  for category in ["runtime", "logic", "business", "edge"]]
+                  for category in ["runtime", "logic", "business", "edge", "system_design"]]
     return {**summary(rows), "solved": len(solved), "total_problems": len(problems), "streak": streak,
             "categories": categories,
             "activity": [{"date": (today - timedelta(days=offset)).isoformat(),
                           "count": daily[today - timedelta(days=offset)]} for offset in reversed(range(91))],
             "achievements": [
                 {"name": "First fix", "description": "Solve your first case study", "unlocked": bool(solved)},
-                {"name": "Bug explorer", "description": "Solve a case in all four categories", "unlocked": all(c["solved"] for c in categories)},
+                {"name": "Bug explorer", "description": "Solve a case in every category", "unlocked": all(c["solved"] for c in categories)},
                 {"name": "Lead engineer", "description": "Solve a case with an AI directive", "unlocked": any(r.status == "passed" and r.kind == "submit" and r.mode == "ai" for r in rows)},
                 {"name": "In the flow", "description": "Be active for seven consecutive days", "unlocked": streak >= 7},
             ]}

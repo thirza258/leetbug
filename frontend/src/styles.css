@@ -162,7 +162,7 @@ main { flex: 1; }
 
 
 
-.category-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 13px; margin: 4px 0 37px; }
+.category-grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 13px; margin: 4px 0 37px; }
 .category-card { position: relative; text-align: left; display: flex; flex-direction: column; border: 1px solid var(--line); border-radius: 9px; background: var(--panel); padding: 17px 18px; transition: border-color .2s, background .2s; }
 .category-card:hover, .category-card.selected { border-color: currentColor; background: var(--panel-soft); }
 .category-icon { width: 34px; height: 34px; display: flex; align-items: center; justify-content: center; border-radius: 9px; background: var(--panel-soft); margin-bottom: 15px; }

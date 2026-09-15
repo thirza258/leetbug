@@ -1,6 +1,26 @@
 # Verification results
 
-Verified on September 15, 2026 against the running Docker Compose deployment at `http://localhost:8080`.
+## System design cases and courses — September 15, 2026
+
+Verified against Vite at `http://localhost:5177` and the real Docker Compose API, PostgreSQL, queue, worker, and execution sandbox. The preview uses port 5177 because another local project occupies 5173.
+
+| Check | Result |
+| --- | --- |
+| Backend | Full suite: 24 passed; after adding the 100-to-101 upgrade scenario, all 13 API tests passed (25 tests total across the suite). Both 40- and 100-case upgrades preserve existing content, bookmarks, and solved submissions across repeated seeding. Ruff passed. |
+| Frontend | TypeScript and ESLint passed; production build passed with the existing Monaco chunk-size warning. Courses and lesson content load in a separate bundle. |
+| New case execution | Python and JavaScript starters each fail both public scenarios; both reference solutions pass all 15 public/hidden scenarios in the actual sandbox. |
+| Courses | All nine lessons exercised through the browser, including incorrect feedback, correct answers, completion, reloads, resuming the next unfinished lesson, and links to existing practice cases. |
+| Persistence and errors | Guest/member progress separation, duplicate completion, malformed browser storage, unavailable storage, unknown courses, and unknown lessons verified. Course progress is stored only in the current browser, per guest or user. |
+| Complete submission flow | Register, filter System design, reproduce the starter failure, paste a solution, submit all tests, unlock the reference explanation, and confirm the solved category in personal progress. |
+| Catalog and layout | All six catalog pages, final system design case, filters, desktop light/dark themes, and mobile navigation/overflow verified. No page errors in the course walkthrough. |
+
+The catalog now contains **101 problems, 136 language variants, and 636 test cases**. New execution checks cover the added problem; the complete 100-problem execution results below describe the earlier run. The browser tests create named local test accounts and real submissions. Local captures are saved under `artifacts/system-design-*.png`.
+
+Reproduce the new browser checks with `BASE_URL=http://localhost:5177 npm run test:e2e -- --grep 'courses|course progress|catalog filtering'` from `frontend` when the preview and Compose worker are running. Include the preview origin in `ALLOWED_ORIGINS` for authenticated submissions.
+
+## Previous 100-problem verification
+
+Verified on September 15, 2026 against the Docker Compose deployment at `http://localhost:8080`.
 
 The 100-problem expansion was checked with sandbox execution, database upgrade verification, backend tests, frontend checks, browser pagination, and live manual submissions. Earlier same-day AI, community, documentation-ingestion, and broader platform results are retained below.
 
