@@ -8,6 +8,7 @@ import { useAuth } from '../lib/auth';
 import { categories, languageNames, pending } from '../lib/constants';
 import { Difficulty, ErrorState, Loading, StatusBadge } from '../components/ui';
 import Results from '../components/Results';
+import Modal from '../components/Modal';
 import type { Hint, Language, Meta, Mode, Page, ProblemDetail, Solutions, Submission } from '../types';
 
 const CodeEditor = lazy(() => import('../components/CodeEditor'));
@@ -46,7 +47,7 @@ function WorkspaceContent({ problem }: { problem: ProblemDetail }) {
   const code = drafts[language] ?? problem.starters[language] ?? '';
   const meta = useQuery({ queryKey: ['meta'], queryFn: () => api<Meta>('/meta') });
   const result = useQuery({ queryKey: ['submission', resultId], queryFn: () => api<Submission>(`/submissions/${resultId}`),
-    enabled: !!resultId && !!user, refetchInterval: query => pending(query.state.data?.status) || !query.state.data ? 800 : false });
+    enabled: !!resultId && !!user, refetchInterval: query => query.state.error ? false : pending(query.state.data?.status) || !query.state.data ? 800 : false });
   const busy = pending(result.data?.status) || (!!resultId && result.isPending && !!user);
   const solved = problem.status === 'solved' || (result.data?.status === 'passed' && result.data.kind === 'submit');
   const solutions = useQuery({ queryKey: ['solutions', problem.slug, user?.id],
@@ -54,7 +55,7 @@ function WorkspaceContent({ problem }: { problem: ProblemDetail }) {
   const history = useQuery({ queryKey: ['submissions', problem.id, user?.id],
     queryFn: () => api<Page<Submission>>(`/submissions?problem_id=${problem.id}&limit=30`), enabled: tab === 'history' && !!user });
   const hint = useQuery({ queryKey: ['hint', hintId], queryFn: () => api<Hint>(`/hints/${hintId}`), enabled: !!hintId,
-    refetchInterval: query => pending(query.state.data?.status) || !query.state.data ? 1000 : false });
+    refetchInterval: query => query.state.error ? false : pending(query.state.data?.status) || !query.state.data ? 1000 : false });
   useEffect(() => {
     const timer = setTimeout(() => { try { localStorage.setItem(draftKey, JSON.stringify(drafts)); } catch { /* Editing remains available without storage. */ } }, 300);
     return () => clearTimeout(timer);
@@ -70,6 +71,8 @@ function WorkspaceContent({ problem }: { problem: ProblemDetail }) {
     }
     if (pending(row.status) || handled.current === row.id) return;
     handled.current = row.id;
+    // This effect imports an external worker's completed patch into the editable local draft, once per job.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (row.generated_code) setDrafts(previous => ({ ...previous, [row.language]: row.generated_code! }));
     void client.invalidateQueries({ queryKey: ['problem', problem.slug] });
     void client.invalidateQueries({ queryKey: ['submissions'] });
@@ -111,9 +114,8 @@ function WorkspaceContent({ problem }: { problem: ProblemDetail }) {
       <div className="run-toolbar"><span><Terminal size={13} />{mode === 'ai' ? 'Prompt. Patch. Verify.' : 'Make a change. Test your thinking.'}</span><div><button className="button secondary small" disabled={blocked || (mode === 'ai' && (!meta.data?.ai_enabled || prompt.trim().length < 10))} onClick={() => run('run')}><Play size={13} />Run code</button><button className="button primary small" disabled={blocked || (mode === 'ai' && (!meta.data?.ai_enabled || prompt.trim().length < 10))} onClick={() => run('submit')}>{blocked ? <LoaderCircle size={14} className="spin" /> : <Send size={13} />}Submit fix</button></div></div>
       <div className="result-panel"><div className="result-panel-header"><span><Terminal size={14} />Test results</span>{result.data?.status === 'passed' && result.data.kind === 'submit' && <button className="text-link" onClick={() => void share()}><Share2 size={13} />{result.data.shared ? 'Make private' : 'Share this fix'}</button>}</div>{result.isError ? <ErrorState error={result.error} retry={() => void result.refetch()} /> : result.data?.problem_id && result.data.problem_id !== problem.id ? <p className="inline-error">This submission belongs to a different case study.</p> : <Results submission={result.data} />}</div>
     </section></div>
-    {showHint && <div className="modal-backdrop" onClick={() => setShowHint(false)}><section className="modal hint-modal" role="dialog" aria-modal="true" aria-label="Documentation-backed hint" onClick={event => event.stopPropagation()}><div className="modal-heading"><span><Lightbulb size={20} />A little direction</span><button autoFocus className="icon-button" aria-label="Close hint" onClick={() => setShowHint(false)}><X size={18} /></button></div>{hint.isError ? <ErrorState error={hint.error} /> : !hint.data || pending(hint.data.status) ? <Loading label="Finding the right documentation…" /> : hint.data.status === 'error' ? <p className="inline-error">{hint.data.error}</p> : <><span className="eyebrow">HINT {hint.data.level} OF {problem.hints_unlocked ? 3 : 0}</span><p className="hint-text">{hint.data.text}</p><h4>From the official docs</h4>{hint.data.sources.map((source, index) => <details className="hint-source" key={source.url}><summary><span>[{index + 1}]</span>{source.title}</summary><p>{source.excerpt}</p><a href={source.url} target="_blank" rel="noreferrer" className="text-link">Read documentation <ArrowRight size={13} /></a></details>)}<div className="hint-modal-footer"><span>Keep going. You’re building the instinct.</span><button className="button secondary small" disabled={hint.data.level >= 3 || requestHint.isPending} onClick={() => requestHint.mutate()}>Next hint <ArrowRight size={13} /></button></div></>}</section></div>}
+    {showHint && <Modal label="Documentation-backed hint" onDismiss={() => setShowHint(false)}><div className="modal-heading"><span><Lightbulb size={20} />A little direction</span><button autoFocus className="icon-button" aria-label="Close hint" onClick={() => setShowHint(false)}><X size={18} /></button></div>{hint.isError ? <ErrorState error={hint.error} /> : !hint.data || pending(hint.data.status) ? <Loading label="Finding the right documentation…" /> : hint.data.status === 'error' ? <p className="inline-error">{hint.data.error}</p> : <><span className="eyebrow">HINT {hint.data.level} OF {problem.hints_unlocked ? 3 : 0}</span><p className="hint-text">{hint.data.text}</p><h4>From the official docs</h4>{hint.data.sources.map((source, index) => <details className="hint-source" key={`${source.url}:${index}`}><summary><span>[{index + 1}]</span>{source.title}</summary><p>{source.excerpt}</p><a href={source.url} target="_blank" rel="noreferrer" className="text-link">Read documentation <ArrowRight size={13} /></a></details>)}<div className="hint-modal-footer"><span>Keep going. You’re building the instinct.</span><button className="button secondary small" disabled={hint.data.level >= 3 || requestHint.isPending} onClick={() => requestHint.mutate()}>Next hint <ArrowRight size={13} /></button></div></>}</Modal>}
   </div>;
 }
 
 function ArrowUpRightIcon() { return <ArrowRight size={14} />; }
-

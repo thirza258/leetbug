@@ -172,4 +172,3 @@ volumes:
   chroma-data:
   sandbox-data:
   ollama-data:
-

@@ -17,13 +17,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, staleTime: 60_000, retry: 1 });
   async function authenticate(path: 'login' | 'register', data: Record<string, string>) {
     const result = await post<Session>(`/auth/${path}`, data);
+    await client.cancelQueries();
     setCsrf(result.csrf_token);
-    client.clear();
+    // Keep the active session observer attached while discarding the previous user's data.
+    client.removeQueries({ predicate: query => query.queryKey[0] !== 'session' });
     client.setQueryData(['session'], result);
   }
   async function logout() {
-    await post('/auth/logout'); setCsrf(null);
-    client.clear(); client.setQueryData(['session'], { user: null, csrf_token: null });
+    await post('/auth/logout');
+    await client.cancelQueries();
+    setCsrf(null);
+    client.removeQueries({ predicate: query => query.queryKey[0] !== 'session' });
+    client.setQueryData(['session'], { user: null, csrf_token: null });
   }
   return <AuthContext.Provider value={{ user: session.data?.user ?? null, loading: session.isPending,
     error: session.error, authenticate, logout }}>{children}</AuthContext.Provider>;
@@ -35,4 +40,3 @@ export function useAuth() {
   if (!value) throw new Error('AuthProvider is required');
   return value;
 }
-

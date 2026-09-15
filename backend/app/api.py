@@ -77,11 +77,12 @@ def enqueue(db, task, record):
 
 
 @router.get("/meta")
-def meta():
+def meta(db: Session = Depends(get_db)):
     return {"name": "LeetBug", "version": "1.0.0", "languages": ["python", "java", "javascript", "cpp", "go"],
             "ai_enabled": settings.ai_enabled, "ai_provider": settings.ai_provider,
             "ai_model": settings.ai_model if settings.ai_enabled else None,
-            "hint_failure_threshold": settings.hint_failure_threshold, "demo_available": settings.seed_demo_user}
+            "hint_failure_threshold": settings.hint_failure_threshold, "demo_available": settings.seed_demo_user,
+            "problem_count": db.scalar(select(func.count()).select_from(Problem))}
 
 
 @router.post("/auth/register", status_code=201)
@@ -425,4 +426,3 @@ def delete_reply(reply_id: str, user: User = Depends(current_user), db: Session 
         raise HTTPException(403, "You can only delete your own replies.")
     db.delete(row)
     db.commit()
-

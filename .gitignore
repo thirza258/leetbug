@@ -4,6 +4,9 @@ __pycache__/
 .pytest_cache/
 .ruff_cache/
 *.pyc
+*.egg-info/
+*.tsbuildinfo
+.coverage
 *.db
 node_modules/
 dist/
@@ -12,4 +15,3 @@ test-results/
 playwright-report/
 .DS_Store
 artifacts/
-

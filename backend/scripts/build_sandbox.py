@@ -5,7 +5,7 @@ import docker
 from app.config import settings
 
 client = docker.DockerClient(base_url=settings.docker_host, timeout=900)
-for attempt in range(60):
+for _attempt in range(60):
     try:
         client.ping()
         break
@@ -21,4 +21,3 @@ for entry in client.api.build(path="/app/sandbox", tag=settings.sandbox_image, r
     if "error" in entry:
         raise SystemExit(entry["error"])
 print("Sandbox image ready.", flush=True)
-

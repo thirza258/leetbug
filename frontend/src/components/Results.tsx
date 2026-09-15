@@ -1,5 +1,6 @@
 import { CheckCircle2, ChevronDown, Circle, Clock3, LockKeyhole, MemoryStick, Terminal, XCircle } from 'lucide-react';
 import type { Submission } from '../types';
+import { Link } from 'react-router-dom';
 import { ms, pending } from '../lib/constants';
 import { StatusBadge } from './ui';
 
@@ -10,7 +11,7 @@ export default function Results({ submission }: { submission?: Submission }) {
   return <div className="results-content" aria-live="polite"><div className="results-summary"><StatusBadge status={submission.status} /><span>{submission.results.filter(test => test.status === 'passed').length} / {submission.results.length} tests passed</span><span className="result-metric"><Clock3 size={13} />{ms(submission.runtime_ms)}</span><span className="result-metric" title="Peak child-process resident memory reported by the execution harness"><MemoryStick size={13} />{submission.memory_kb == null ? '—' : `${(submission.memory_kb / 1024).toFixed(1)} MB`}</span></div>
     {submission.error && <p className="inline-error">{submission.error}</p>}
     {submission.status === 'passed' && <div className="success-note"><CheckCircle2 size={17} /><span>{submission.kind === 'run' ? 'Public tests pass. Submit your fix to check the hidden cases.' : 'Nice work. All tests passed — the solution is now unlocked.'}</span></div>}
+    {submission.status === 'passed' && submission.kind === 'submit' && <div className="result-actions"><Link className="button secondary small" to="/?status=todo">Try another case</Link><Link className="button secondary small" to="/progress">View progress</Link><Link className="button secondary small" to={`/discussions/new?problem_id=${submission.problem_id}`}>Discuss this fix</Link></div>}
     <div className="test-results">{submission.results.map((test, i) => <details key={i} className={`test-result ${test.status}`} open={!test.hidden && test.status !== 'passed' ? true : undefined}><summary>{test.status === 'passed' ? <CheckCircle2 size={15} /> : <XCircle size={15} />}<span>{test.name}</span>{test.hidden && <LockKeyhole size={12} />}<span className="test-status">{test.status.replaceAll('_', ' ')}</span>{!test.hidden && <ChevronDown size={14} />}</summary>{test.hidden ? <p className="muted">Inputs and expected results stay hidden to test the generality of your fix.</p> : <div className="test-detail"><div><span>INPUT</span><pre>{json(test.input)}</pre></div><div><span>EXPECTED</span><pre>{json(test.expected)}</pre></div><div><span>YOUR OUTPUT</span><pre>{json(test.actual)}</pre></div>{test.message && <pre className="runtime-message">{test.message}</pre>}{test.assertions?.map(assertion => <div className="assertion" key={assertion.path}>{assertion.passed ? <CheckCircle2 size={13} /> : <Circle size={13} />}<code>{assertion.path}</code><span>must equal {JSON.stringify(assertion.expected)}</span></div>)}</div>}</details>)}</div>
   </div>;
 }
-

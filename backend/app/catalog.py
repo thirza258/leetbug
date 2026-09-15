@@ -431,3 +431,67 @@ CATALOG = [
     ),
 ]
 
+CATALOG.append(problem(
+    "wallet-race", "Two withdrawals, one balance",
+    "Two payment requests arrive at the same time. Both check the same wallet balance, both see enough funds, and both withdraw. Reproduce the race with synchronized threads, then make the check and debit one atomic operation.",
+    "business", "hard", ["concurrency", "locks", "state"],
+    ["Input has a nonnegative balance and a list of withdrawal amounts in integer cents.",
+     "Process requests concurrently, approving a request only if its amount is positive and sufficient funds remain.",
+     "Return {state: {balance, approved}}. The balance must never become negative.",
+     "All positive amounts in each test are identical, so the final balance and approval count do not depend on thread order."],
+    {"python": '''
+        import threading
+
+        def solve(data):
+            state = {"balance": data["balance"], "approved": 0}
+            barrier = threading.Barrier(max(1, len(data["withdrawals"])))
+
+            def withdraw(amount):
+                allowed = amount <= state["balance"]
+                barrier.wait()
+                if allowed:
+                    state["balance"] -= amount
+                    state["approved"] += 1
+
+            threads = [threading.Thread(target=withdraw, args=(amount,))
+                       for amount in data["withdrawals"]]
+            for thread in threads:
+                thread.start()
+            for thread in threads:
+                thread.join()
+            return {"state": state}
+    '''},
+    {"python": '''
+        import threading
+
+        def solve(data):
+            state = {"balance": data["balance"], "approved": 0}
+            lock = threading.Lock()
+            barrier = threading.Barrier(max(1, len(data["withdrawals"])))
+
+            def withdraw(amount):
+                barrier.wait()
+                with lock:
+                    if 0 < amount <= state["balance"]:
+                        state["balance"] -= amount
+                        state["approved"] += 1
+
+            threads = [threading.Thread(target=withdraw, args=(amount,))
+                       for amount in data["withdrawals"]]
+            for thread in threads:
+                thread.start()
+            for thread in threads:
+                thread.join()
+            return {"state": state}
+    '''},
+    [case("Enough for both", {"balance": 100, "withdrawals": [20, 20]}, {"state": {"balance": 60, "approved": 2}}),
+     case("Concurrent overdraft", {"balance": 100, "withdrawals": [60, 60]}, {"state": {"balance": 40, "approved": 1}},
+          assertions=[{"path": "state.balance", "equals": 40}, {"path": "state.approved", "equals": 1}]),
+     case("Ten simultaneous requests", {"balance": 100, "withdrawals": [30] * 10}, {"state": {"balance": 10, "approved": 3}}, True),
+     case("Invalid requests", {"balance": 100, "withdrawals": [-10, 0]}, {"state": {"balance": 100, "approved": 0}}, True),
+     case("No requests", {"balance": 100, "withdrawals": []}, {"state": {"balance": 100, "approved": 0}}, True)],
+    "The balance check and debit must share a critical section. Place the barrier before acquiring the lock, then validate and update under the same lock. A lock around only the debit still permits stale checks. This in-process model uses a threading lock; multiple service instances need database-level atomicity. Time O(n), thread storage O(n).",
+    ["Both requests read the balance before either writes. What can change between those operations?",
+     "Protect the check and the update together. Synchronizing only the debit is too late.",
+     "Wait at the barrier before acquiring the lock, then validate a positive amount and update both fields while holding the lock."], 25,
+))

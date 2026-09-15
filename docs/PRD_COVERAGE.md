@@ -1,0 +1,47 @@
+# PRD implementation map
+
+Scope: every functional section and all three roadmap phases in PRD v1.0. KPI target values are measured and displayed; deployment hardware and model performance determine whether those targets are achieved.
+
+| PRD requirement | Implementation | Verification |
+| --- | --- | --- |
+| 3.1 Searchable problem library | Server-side search, category, difficulty, language, tags, progress, bookmarks, ordering, pagination | `test_catalog_filters_and_no_private_oracles`; browser catalog flow |
+| Runtime errors | Empty averages, out-of-bounds strings, nil Go maps | Every starter fails and reference solution passes in `app.verify_catalog` |
+| Logic errors | Aggregation bounds, pagination offsets, async promise collection | Catalog execution verification |
+| Business flow errors | Checkout invariants, wallet rollback, RBAC, idempotent inventory, synchronized wallet races | Exact JSON and state-path assertions in the real sandbox |
+| Edge and corner cases | Empty inputs, zero IDs, large integer boundaries, unknown/missing authorization payloads | Public and hidden cases; strict boolean/integer comparison tests |
+| 3.2 Manual workspace | Locally bundled Monaco; syntax highlighting, find, folding, completion, language switching, persistent drafts | Production build and browser editor/submit flow |
+| 3.2 AI prompt workspace | Natural-language directives, OpenRouter/Ollama adapter, queued generation, patched code shown in Monaco and evaluated | Provider HTTP contract tests; worker persistence/idempotency tests; configurable live provider smoke |
+| 3.3 Public and hidden tests | Public Run Code and full Submit Fix paths; expected answers remain outside the container | Solution-gate tests, hidden-feedback redaction tests, real catalog verification |
+| 3.3 Integration/state assertions | Transaction rollback, authorization, idempotent request sequences, threaded check-and-update scenarios | State-path assertions and complete JSON state comparison |
+| 3.3 Evaluation metrics | Passed/failed/runtime/time/memory/output/service-error states; wall runtime, memory, turnaround | Grading tests; catalog resource probes; HTTP/browser feedback |
+| 3.4 Repeated-failure hints | Configurable two-failure threshold; three progressive hints per language; async jobs | Hint gating, deduplication, level cap, and retrieval tests |
+| 3.4 Official-document RAG | Chroma vector storage, source-linked corpus, live official-doc chunk ingestion, optional semantic embedding endpoint | Retrieval/fallback unit tests and startup indexer; real hint flow |
+| 3.4 Smart fallback | Bundled documentation when Chroma is down; curated guidance when a model is down | Explicit fallback tests and API retrieval provenance |
+| 4 Discovery → context → action | Catalog to problem description to manual/AI editor | Browser flow |
+| 4 Execution → feedback → iteration | Durable submission jobs, polling, generated patches, test details, editable retries | Browser failed-run/hint/fix/acceptance flow |
+| 4 Resolution and comparison | Accepted full submissions unlock reference explanations and opted-in community code/prompts | Unlock/share tests; browser sharing flow |
+| 5 Frontend stack | React, TypeScript, Vite, Tailwind CSS, lazy-loaded Monaco | Strict compiler, React lint, production build |
+| 5 FastAPI and authentication | FastAPI routes, validation, Argon2, revocable sessions, CSRF, origin checks, rate limits | Auth/session/ownership/origin/request-size tests |
+| 5 PostgreSQL | Users, cases, sessions, submissions, hints, discussions/replies/votes, daily activity; Alembic migration | PostgreSQL-backed Compose and persisted browser flow |
+| 5 ChromaDB | Persistent HTTP vector-store service and idempotent startup indexing | Compose indexer and hint retrieval |
+| 5 Celery/Redis | Queued generation/evaluation/hints; retries handled as durable job states; cleanup scheduler | Queue-failure and idempotency tests; live worker flow |
+| 5 Docker isolation | Dedicated daemon, fresh restricted containers, no submitted-code network or host mounts, hard limits | Real isolation probes in `app.verify_catalog` |
+| 5 OpenRouter and Ollama | Both provider routes; optional local model service; configurable endpoints and models | Provider contract tests; opt-in real-provider smoke |
+| 6 Completion and mode adoption | Accepted/evaluated full submissions and manual/AI distributions; infrastructure errors/runs excluded | Metric denominator tests and dashboard |
+| 6 P95 execution and AI turnaround | Nearest-rank P95 of recorded end-to-end turnaround with PRD 2.5s/5s targets | Percentile/metrics tests and dashboard; measure on target hardware |
+| 6 MAU and 7-day retention | Unique active users in the trailing 30 days; evaluate a different case on a later day within the first 7 days, using mature cohorts | Daily activity/cohort tests exclude login-only and same-case returns; null display when no eligible cohort exists |
+| Phase 1 | Auth, schema, editor, Python and Java, runtime/logic cases | API, browser, and catalog checks |
+| Phase 2 | Async queue, real LLM integration, business/state evaluation | Worker/provider/state tests and Compose |
+| Phase 3 | Discussion forums, prompt leaderboards, full Chroma retrieval, C++/JavaScript/Go | Community browser flow, ranking tests, real five-language execution |
+| Requested UI refinements | Simple surfaces, persistent light/dark themes, matching editor colors, contextual calls to action | Browser theme persistence, Monaco theme switching, case-opening, and mobile navigation |
+| Requested deployment filename | `docker-compose.yaml` with `docker-compose.dev.yaml` for local overrides | Both Compose configurations validate |
+
+## Deliberate implementation choices
+
+- The API uses database-backed opaque sessions instead of JWTs, allowing immediate logout revocation. The PRD leaves the authentication mechanism open.
+- The default documentation embeddings are lexical feature-hash vectors. Configuring an Ollama embedding model enables semantic retrieval using a separate Chroma collection. Neither mode claims to retrieve sources that were not indexed.
+- Real third-party AI calls require a model endpoint or API key. Unconfigured AI generation is explicitly unavailable; manual execution and documentation-backed hints continue working.
+- Every code language shares a JSON input/output contract. Business test cases assert returned mock state and include real in-container concurrency; they do not give submitted code access to the application database.
+- Prompt efficiency means shortest accepted directive word count, with one best entry per user/case and runtime tie-breaking. Provider token usage is stored separately.
+- UI memory is the execution harness's peak child-process RSS, including compilation. Wall-clock runtime and grading decisions are controlled by the worker. Memory telemetry is not an anti-cheating guarantee.
+- The nested Docker daemon is privileged trusted infrastructure. Submitted-code containers are unprivileged. Internet-facing hostile-code hosting requires a dedicated host/VM boundary as described in the README.

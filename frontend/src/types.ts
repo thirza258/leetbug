@@ -4,7 +4,7 @@ export type Mode = 'manual' | 'ai';
 export type Status = 'queued' | 'running' | 'passed' | 'failed' | 'runtime_error' | 'time_limit' | 'memory_limit' | 'output_limit' | 'error';
 export interface User { id: string; email: string; username: string; bio: string; created_at: string }
 export interface Session { user: User | null; csrf_token: string | null }
-export interface Meta { ai_enabled: boolean; ai_provider: string; ai_model: string | null; hint_failure_threshold: number; demo_available: boolean }
+export interface Meta { ai_enabled: boolean; ai_provider: string; ai_model: string | null; hint_failure_threshold: number; demo_available: boolean; problem_count: number }
 export interface Page<T> { items: T[]; total: number; page: number; limit: number }
 export interface Problem {
   id: number; slug: string; title: string; summary: string; category: Category;
@@ -57,4 +57,3 @@ export interface Discussion {
   problem_id: number | null; problem_title: string | null; problem_slug: string | null;
   votes: number; voted: boolean; reply_count: number; replies: Reply[];
 }
-

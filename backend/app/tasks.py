@@ -4,6 +4,7 @@ from datetime import timedelta
 
 import docker
 from celery import Celery
+from docker.errors import NotFound
 from sqlalchemy import update
 
 from app.auth import utc
@@ -88,11 +89,18 @@ def cleanup():
         db.execute(update(Hint).where(Hint.status.in_(["queued", "running"]), Hint.created_at < cutoff)
                    .values(status="error", error="The hint worker timed out. Please try again."))
         db.commit()
+    client = None
     try:
-        with docker.DockerClient(base_url=settings.docker_host, timeout=5) as client:
-            for container in client.containers.list(all=True, filters={"label": "app=leetbug-sandbox"}):
+        client = docker.DockerClient(base_url=settings.docker_host, timeout=5)
+        for container in client.containers.list(all=True, filters={"label": "app=leetbug-sandbox"}):
+            try:
                 if float(container.labels.get("expires_at", "0")) < time.time():
                     container.remove(force=True)
+            except NotFound:
+                # The evaluation worker may have removed it after the listing.
+                continue
     except Exception:
-        log.warning("Could not clean expired execution containers")
-
+        log.warning("Could not clean expired execution containers", exc_info=True)
+    finally:
+        if client is not None:
+            client.close()

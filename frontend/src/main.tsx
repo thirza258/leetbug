@@ -4,13 +4,14 @@ import { createRoot } from 'react-dom/client';
 import { BrowserRouter, Link, Route, Routes, useLocation } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Toaster } from 'sonner';
-import '@fontsource/dm-sans/400.css';
-import '@fontsource/dm-sans/500.css';
-import '@fontsource/dm-sans/600.css';
-import '@fontsource/dm-sans/700.css';
-import '@fontsource/jetbrains-mono/400.css';
+import '@fontsource/dm-sans/latin-400.css';
+import '@fontsource/dm-sans/latin-500.css';
+import '@fontsource/dm-sans/latin-600.css';
+import '@fontsource/dm-sans/latin-700.css';
+import '@fontsource/jetbrains-mono/latin-400.css';
 import './styles.css';
 import { AuthProvider } from './lib/auth';
+import { ThemeProvider, useTheme } from './lib/theme';
 import { ApiError } from './lib/api';
 import Layout from './components/Layout';
 import { EmptyState, Loading } from './components/ui';
@@ -41,10 +42,10 @@ class ErrorBoundary extends Component<{ children: ReactNode }, { error: boolean 
   render() { return this.state.error ? <div className="page"><EmptyState title="The workspace hit a snag."><p>Your saved drafts are still in this browser.</p><button className="button primary" onClick={() => window.location.reload()}>Reload workspace</button></EmptyState></div> : this.props.children; }
 }
 function App() {
+  const { theme } = useTheme();
   return <ErrorBoundary><QueryClientProvider client={client}><BrowserRouter><AuthProvider><ScrollToTop /><Suspense fallback={<Loading />}><Routes>
     <Route path="/login" element={<AuthPage />} /><Route path="/register" element={<AuthPage register />} />
     <Route element={<Layout />}><Route index element={<Library />} /><Route path="/problems/:slug" element={<Workspace />} /><Route path="/progress" element={<Progress />} /><Route path="/submissions" element={<HistoryPage />} /><Route path="/leaderboard" element={<Leaderboard />} /><Route path="/discussions" element={<Discussions />} /><Route path="/discussions/new" element={<NewDiscussion />} /><Route path="/discussions/:id" element={<DiscussionDetail />} /><Route path="/guide" element={<Guide />} /><Route path="*" element={<div className="page"><EmptyState title="This page wandered off."><p>There are plenty of bugs waiting back in the library.</p><Link to="/" className="button primary">Back to library</Link></EmptyState></div>} /></Route>
-  </Routes></Suspense><Toaster theme="dark" position="bottom-right" richColors closeButton /></AuthProvider></BrowserRouter></QueryClientProvider></ErrorBoundary>;
+  </Routes></Suspense><Toaster theme={theme} position="bottom-right" closeButton /></AuthProvider></BrowserRouter></QueryClientProvider></ErrorBoundary>;
 }
-createRoot(document.getElementById('root')!).render(<StrictMode><App /></StrictMode>);
-
+createRoot(document.getElementById('root')!).render(<StrictMode><ThemeProvider><App /></ThemeProvider></StrictMode>);

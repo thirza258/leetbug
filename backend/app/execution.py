@@ -18,6 +18,8 @@ def equal(actual, expected):
     # Python considers True == 1; JSON contracts do not.
     if isinstance(expected, bool) or isinstance(actual, bool):
         return type(actual) is type(expected) and actual == expected
+    if isinstance(expected, int) and isinstance(actual, (int, float)):
+        return actual == expected
     if isinstance(expected, (int, float)) and isinstance(actual, (int, float)):
         return math.isfinite(actual) and math.isclose(actual, expected, rel_tol=1e-9, abs_tol=1e-9)
     if isinstance(expected, dict):
@@ -39,7 +41,7 @@ def at_path(value, path):
 
 def grade(tests, execution):
     """The only grading authority. Hidden case inputs, expectations, errors stay private."""
-    if execution.get("fatal_status"):
+    if execution.get("fatal_status") in {"runtime_error", "time_limit", "memory_limit"}:
         return execution["fatal_status"], []
     if execution.get("compile_error"):
         return "runtime_error", [{"name": "Compilation", "hidden": False, "status": "runtime_error",
@@ -63,7 +65,7 @@ def grade(tests, execution):
         status = raw.get("status", "runtime_error")
         if status == "ok":
             status = "passed" if equal(actual, test["expected"]) and all(a["passed"] for a in assertions) else "failed"
-        if status not in {"passed", "failed", "runtime_error", "time_limit", "output_limit"}:
+        if raw.get("status") != "ok" and status not in {"runtime_error", "time_limit", "output_limit"}:
             status = "runtime_error"
         result = {"name": f"Hidden case {index}" if test["hidden"] else test["name"],
                   "hidden": test["hidden"], "status": status}
@@ -88,7 +90,8 @@ def execute_code(language, code, tests):
             mem_limit=f"{settings.sandbox_memory_mb}m", memswap_limit=f"{settings.sandbox_memory_mb}m",
             nano_cpus=1_000_000_000, pids_limit=96, cap_drop=["ALL"],
             security_opt=["no-new-privileges:true"], user="10001:10001", stdin_open=True,
-            tmpfs={"/tmp": "rw,nosuid,nodev,size=192m,mode=1777"},
+            # Native C++ and Go binaries execute only from this bounded scratch volume.
+            tmpfs={"/tmp": "rw,exec,nosuid,nodev,size=192m,mode=1777"},
             environment={"GOMAXPROCS": "1", "GOTOOLCHAIN": "local"},
             labels={"app": "leetbug-sandbox", "expires_at": str(time.time() + settings.sandbox_timeout_seconds + 15)},
             log_config=docker.types.LogConfig(type="json-file", config={"max-size": "1m", "max-file": "1"}),
@@ -110,9 +113,10 @@ def execute_code(language, code, tests):
         if outcome["StatusCode"] != 0 or len(logs) > 128000:
             return {"fatal_status": "runtime_error", "results": [], "runtime_ms": (time.monotonic() - start) * 1000}
         try:
-            result = json.loads(logs)
-            if not isinstance(result, dict):
+            payload = json.loads(logs)
+            if not isinstance(payload, dict):
                 raise ValueError("Invalid response")
+            result = {key: payload[key] for key in ("results", "compile_error", "memory_kb") if key in payload}
         except (ValueError, TypeError):
             return {"fatal_status": "runtime_error", "results": []}
         # Wall time is measured outside the container and cannot be forged by the program.
@@ -131,4 +135,3 @@ def execute_code(language, code, tests):
             except DockerException:
                 pass
         client.close()
-

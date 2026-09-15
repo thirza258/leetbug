@@ -61,12 +61,21 @@ def platform_stats(db):
     rows = list(db.scalars(select(Submission)))
     active = list(db.execute(select(Activity.user_id, Activity.day)))
     first = {}
-    days = defaultdict(set)
     for user_id, day in active:
         first[user_id] = min(first.get(user_id, day), day)
-        days[user_id].add(day)
     mature = [user_id for user_id, day in first.items() if day <= today - timedelta(days=7)]
-    retained = sum(any(first[uid] < day <= first[uid] + timedelta(days=7) for day in days[uid]) for uid in mature)
+    first_cases = defaultdict(set)
+    for row in rows:
+        if row.status in TERMINAL and row.created_at.date() == first.get(row.user_id):
+            first_cases[row.user_id].add(row.problem_id)
+    # A later login alone is not debugging retention: evaluate a new case on a later day.
+    returned = {
+        row.user_id for row in rows
+        if row.status in TERMINAL and row.user_id in first
+        and first[row.user_id] < row.created_at.date() <= first[row.user_id] + timedelta(days=7)
+        and row.problem_id not in first_cases[row.user_id]
+    }
+    retained = sum(user_id in returned for user_id in mature)
     return {**summary(rows), "registered_users": db.scalar(select(func.count()).select_from(User)),
             "monthly_active_users": len({uid for uid, day in active if day >= today - timedelta(days=29)}),
             "retention_7d": round(retained / len(mature) * 100, 1) if mature else None,
@@ -95,4 +104,3 @@ def leaderboard_rows(db, mode, problem_id):
                        "runtime_ms": round(sum(row.runtime_ms or 0 for row in best) / len(best), 2)})
     result.sort(key=lambda row: (-row["solved"], row["prompt_words"] or 0, row["runtime_ms"], row["username"]))
     return [{**row, "rank": index} for index, row in enumerate(result[:100], 1)]
-

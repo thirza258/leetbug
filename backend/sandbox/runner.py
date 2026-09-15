@@ -80,6 +80,11 @@ def execute(command, data, timeout):
                     break
             if status:
                 break
+        if status is None:
+            try:
+                process.wait(timeout=max(0.001, timeout - (time.monotonic() - started)))
+            except subprocess.TimeoutExpired:
+                status = "time_limit"
     finally:
         # Kill descendants too (including children keeping stdout open).
         try:
@@ -153,4 +158,3 @@ if __name__ == "__main__":
         except Exception as exc:
             result = {"compile_error": f"Harness could not execute the program: {type(exc).__name__}", "results": []}
         print(json.dumps(result, allow_nan=False))
-

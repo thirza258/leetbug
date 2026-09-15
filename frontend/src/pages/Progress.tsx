@@ -15,7 +15,7 @@ export default function Progress() {
   const platform = useQuery({ queryKey: ['platform'], queryFn: () => api<PlatformStats>('/analytics/platform') });
   if (loading) return <Loading />;
   if (!user) return <div className="page"><SignInCard /></div>;
-  return <div className="page"><PageHeading eyebrow="EVERY FIX COUNTS" title="Look how far you’ve come." description="Your debugging journey, measured in moments of understanding." action={<Link className="button primary" to="/">Find your next bug <ArrowRight size={15} /></Link>} />
+  return <div className="page"><PageHeading eyebrow="EVERY FIX COUNTS" title="My progress" description="Track solved cases, activity, and the skills you are building." action={<Link className="button primary" to="/">Find your next bug <ArrowRight size={15} /></Link>} />
     <Profile user={user} />
     {stats.isPending ? <Loading /> : stats.isError ? <ErrorState error={stats.error} retry={() => void stats.refetch()} /> : <>
       <div className="stat-grid">{[
