@@ -9,13 +9,16 @@ All functional PRD sections and all three roadmap phases are implemented. The lo
 | Check | Result |
 | --- | --- |
 | Backend behavior and regression suite | 22 tests passed; authentication, CSRF, ownership, filtering, solution gates, job limits, queue failure, worker idempotency, grading, hints, provider contracts, document redirects, cleanup, and metrics |
-| Real catalog execution | 53/53 checks passed: 23 buggy starters, 23 reference solutions, and seven execution-boundary probes |
+| Real catalog execution | 155/155 checks passed across 40 problems: 74 buggy starters, 74 reference solutions, and seven execution-boundary probes; each starter compiles where applicable and fails a public test |
+| Catalog coverage | 10 problems per category; 13 easy, 20 medium, 7 hard; 226 test cases, including 146 hidden cases; three progressive hints per problem |
+| Catalog upgrade | Expanded the existing PostgreSQL library from 13 to 40 problems; repeated seeding preserved every existing problem ID and all 18 pre-expansion submissions |
 | Supported languages | Python, Java 17, JavaScript, C++17, and Go all executed successfully inside the restricted Docker sandbox |
-| Browser: catalog and themes | Search/reset/filter sequence, contextual case action, light/dark persistence, Monaco theme switching, mobile navigation |
+| Browser: catalog and themes | Both 20-row pages, navigation to the final new case, search resets pagination, all 11 Go cases, contextual case action, light/dark persistence, Monaco theme switching, mobile navigation |
 | Browser: manual debugging | Register, fail twice, retrieve a cited hint, edit Monaco, pass all tests, unlock and share a solution, persist progress and profile changes, log out and sign back in |
 | Browser: community | Register, create a discussion, reply, vote, reload persisted content, delete the author's discussion |
 | Browser: live AI | Real Ollama directive, accepted generated patch, sharing, restored prompt/patch after reload, prompt-efficiency leaderboard entry |
 | HTTP deployment smoke | Real API → PostgreSQL → Celery/Redis → Docker execution → feedback, including a live accepted AI fix |
+| Expanded-catalog HTTP smoke | New Python, Java, Go, C++, and JavaScript problems: reproduce starter failures, submit accepted fixes, redact hidden feedback, unlock solutions, persist five solves, and report 10 cases per category in progress |
 | Official documentation ingestion | 703 chunks fetched from reviewed official documentation pages; 12 bundled summaries; 715 total records in both lexical and semantic Chroma collections |
 | Semantic retrieval | Actual `nomic-embed-text` embeddings; a rollback query returned official Python sqlite3 transaction documentation through `chroma-semantic` retrieval |
 | TypeScript and React checks | Strict TypeScript and ESLint passed; production frontend image built successfully |
@@ -29,17 +32,17 @@ The execution probes cover disabled networking, a read-only root, the unprivileg
 
 ## Timing observations
 
-These are local functional samples, not a concurrency or production capacity benchmark. Sandbox times below include compilation and container overhead, but exclude queueing and model generation.
+These are local functional samples, not a concurrency or production capacity benchmark. The table summarizes the latest complete catalog-verification run. Sandbox times include compilation and container overhead, but exclude queueing and model generation.
 
 | Language | Reference solutions | Observed maximum sandbox runtime |
 | --- | ---: | ---: |
-| Python | 10 | 168 ms |
-| JavaScript | 6 | 427 ms |
-| Java | 3 | 959 ms |
-| C++ | 2 | 1,794 ms |
-| Go | 2 | 348 ms |
+| Python | 24 | 256 ms |
+| JavaScript | 17 | 1,113 ms |
+| Java | 13 | 2,376 ms |
+| C++ | 9 | 1,994 ms |
+| Go | 11 | 293 ms |
 
-The platform dashboard recorded a manual turnaround P95 of approximately **1.49 seconds** in the local submission sample. The latest live browser AI submission took **6.37 seconds** end to end, including **260 ms** in the sandbox, and used **223 provider-reported tokens**. An earlier AI smoke run under competing local model work took **54.56 seconds**. Consequently, the PRD's **AI P95 below five seconds is not achieved on this tested CPU setup**. A faster model service, appropriate hardware, and a representative load test are required before claiming that target. The current model is the small `qwen2.5-coder:0.5b` integration model; passing these cases does not imply it can reliably solve every challenge.
+The earlier, smaller-catalog submission sample recorded a manual turnaround P95 of approximately **1.49 seconds**. With the expanded catalog, the strict Java JSON case passed all 16 tests through the live queue in **2.79 seconds** end to end, including **2.68 seconds** in the sandbox; the earlier P95 should not be treated as a benchmark for the larger catalog. The latest live browser AI submission took **6.37 seconds** end to end, including **260 ms** in the sandbox, and used **223 provider-reported tokens**. An earlier AI smoke run under competing local model work took **54.56 seconds**. Consequently, the PRD's **AI P95 below five seconds is not achieved on this tested CPU setup**. A faster model service, appropriate hardware, and a representative load test are required before claiming that target. The current model is the small `qwen2.5-coder:0.5b` integration model; passing these cases does not imply it can reliably solve every challenge.
 
 Hints bound model generation to 12 seconds and retain documentation-backed guidance when the model is slow or unavailable. This fallback was exercised against the actual deployment.
 
@@ -48,8 +51,10 @@ Hints bound model generation to 12 seconds and retain documentation-backed guida
 - `artifacts/catalog-verification.jsonl` — every real language/case result and boundary probe.
 - `artifacts/backend-tests.log` — 22 passing backend tests. Upstream deprecation notices are present under the host's Python 3.14; Compose uses Python 3.12.
 - `artifacts/browser-catalog-community.log`, `artifacts/browser-workspace.log`, and `artifacts/browser-live-ai.log` — four passing browser flows.
+- `artifacts/browser-expanded-catalog.log` — expanded-catalog pagination, filters, themes, mobile layout, and navigation to a new workspace.
+- `artifacts/expanded-catalog-smoke.log` — new cases in all five languages through the deployed API, persistence, queue, and sandbox.
 - `artifacts/live-ai-smoke.log` — persisted HTTP smoke with a real model.
 - `artifacts/document-ingestion.log` and `artifacts/semantic-ingestion.log` — live official-document refresh results.
-- `artifacts/library-light.png`, `artifacts/library-dark.png`, `artifacts/library-mobile-light.png`, `artifacts/workspace-dark.png`, `artifacts/accepted-workspace.png`, `artifacts/progress-desktop.png`, and `artifacts/ai-workspace.png` — browser captures.
+- `artifacts/library-light.png`, `artifacts/library-dark.png`, `artifacts/library-mobile-light.png`, `artifacts/library-expanded-mobile.png`, `artifacts/workspace-dark.png`, `artifacts/accepted-workspace.png`, `artifacts/progress-desktop.png`, and `artifacts/ai-workspace.png` — browser captures.
 
 Artifacts are local and ignored by Git. Commands to reproduce these checks are in the README. Browser and HTTP tests create clearly named test accounts and real submissions; the catalog verifier does not create submission history. OpenRouter is covered by HTTP contract tests, while live provider execution was verified with Ollama. The supplied GitHub Actions workflow has not been run on a remote GitHub repository during this session.

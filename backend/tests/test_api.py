@@ -1,6 +1,7 @@
 from datetime import timedelta
 
 from app import tasks
+from app.catalog import CATALOG
 from app.config import settings
 from app.models import Activity, Hint, Submission, now
 
@@ -41,10 +42,16 @@ def test_origin_and_payload_limits(client):
 
 def test_catalog_filters_and_no_private_oracles(client, member):
     response = client.get("/api/problems").json()
-    assert response["total"] == 13
-    assert client.get("/api/problems?category=business&language=python&difficulty=medium").json()["total"] == 2
+    assert response["total"] == len(CATALOG) == 40
+    assert len(response["items"]) == 20
+    second_page = client.get("/api/problems?page=2").json()
+    assert len(second_page["items"]) == 20
+    assert second_page["items"][-1]["slug"] == "shipment-transitions"
+    assert not {row["id"] for row in response["items"]} & {row["id"] for row in second_page["items"]}
+    assert client.get("/api/meta").json()["problem_count"] == 40
+    assert client.get("/api/problems?category=business&language=python&difficulty=medium").json()["total"] == 4
     assert client.get("/api/problems?q=overflow").json()["total"] == 1
-    assert client.get("/api/problems?language=go").json()["total"] == 2
+    assert client.get("/api/problems?language=go").json()["total"] == 11
     assert client.get("/api/problems?tag=rollback").json()["total"] == 1
     assert client.get("/api/problems?page=2&limit=5").json()["items"][0]["id"] == 6
     assert client.get("/api/problems?limit=0").status_code == 422
@@ -55,6 +62,12 @@ def test_catalog_filters_and_no_private_oracles(client, member):
     assert client.post("/api/problems/checkout-underflow/bookmark").json()["bookmarked"]
     assert client.get("/api/problems?bookmarked=true").json()["total"] == 1
     assert not client.post("/api/problems/checkout-underflow/bookmark").json()["bookmarked"]
+    for item in CATALOG[13:]:
+        expanded = client.get(f"/api/problems/{item['slug']}").json()
+        assert set(expanded["starters"]) == set(item["starters"])
+        assert "solutions" not in expanded and "tests" not in expanded and "hints" not in expanded
+        assert expanded["hidden_test_count"] == sum(test["hidden"] for test in item["tests"])
+        assert len(expanded["public_tests"]) == sum(not test["hidden"] for test in item["tests"])
 
 
 def test_solution_unlock_requires_full_submission_and_share_opt_in(client, member, db_factory):
