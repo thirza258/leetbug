@@ -1,9 +1,11 @@
 from datetime import timedelta
 
-from app import tasks
+from sqlalchemy import delete, select
+
+from app import seed, tasks
 from app.catalog import CATALOG
 from app.config import settings
-from app.models import Activity, Hint, Submission, now
+from app.models import Activity, Bookmark, Hint, Problem, Submission, now
 
 
 def create_attempt(db_factory, member, *, status="failed", kind="submit", mode="manual", problem_id=1):
@@ -42,16 +44,24 @@ def test_origin_and_payload_limits(client):
 
 def test_catalog_filters_and_no_private_oracles(client, member):
     response = client.get("/api/problems").json()
-    assert response["total"] == len(CATALOG) == 40
+    assert response["total"] == len(CATALOG) == 100
     assert len(response["items"]) == 20
     second_page = client.get("/api/problems?page=2").json()
     assert len(second_page["items"]) == 20
     assert second_page["items"][-1]["slug"] == "shipment-transitions"
     assert not {row["id"] for row in response["items"]} & {row["id"] for row in second_page["items"]}
-    assert client.get("/api/meta").json()["problem_count"] == 40
-    assert client.get("/api/problems?category=business&language=python&difficulty=medium").json()["total"] == 4
+    pages = [response, second_page] + [client.get(f"/api/problems?page={page}").json() for page in range(3, 6)]
+    assert all(len(page["items"]) == 20 for page in pages)
+    assert [row["slug"] for page in pages for row in page["items"]] == [item["slug"] for item in CATALOG]
+    assert pages[-1]["items"][-1]["id"] == 100
+    assert pages[-1]["items"][-1]["slug"] == "waitlist-promotion"
+    assert client.get("/api/problems?page=6").json()["items"] == []
+    assert client.get("/api/meta").json()["problem_count"] == 100
+    for category in ("runtime", "logic", "business", "edge"):
+        assert client.get(f"/api/problems?category={category}").json()["total"] == 25
+    assert client.get("/api/problems?category=business&language=python&difficulty=medium").json()["total"] == 8
     assert client.get("/api/problems?q=overflow").json()["total"] == 1
-    assert client.get("/api/problems?language=go").json()["total"] == 11
+    assert client.get("/api/problems?language=go").json()["total"] == 18
     assert client.get("/api/problems?tag=rollback").json()["total"] == 1
     assert client.get("/api/problems?page=2&limit=5").json()["items"][0]["id"] == 6
     assert client.get("/api/problems?limit=0").status_code == 422
@@ -68,6 +78,30 @@ def test_catalog_filters_and_no_private_oracles(client, member):
         assert "solutions" not in expanded and "tests" not in expanded and "hints" not in expanded
         assert expanded["hidden_test_count"] == sum(test["hidden"] for test in item["tests"])
         assert len(expanded["public_tests"]) == sum(not test["hidden"] for test in item["tests"])
+
+
+def test_catalog_upgrade_preserves_existing_content_and_progress(db_factory, client, member):
+    submission_id = create_attempt(db_factory, member, status="passed", problem_id=40)
+    with db_factory() as db:
+        # Reproduce an installation with the previous 40-problem catalog.
+        db.execute(delete(Problem).where(Problem.id > 40))
+        db.get(Problem, 40).title = "Locally edited shipment case"
+        db.add(Bookmark(user_id=member["id"], problem_id=40))
+        db.commit()
+        original = [(p.id, p.slug, p.title) for p in db.scalars(select(Problem).order_by(Problem.id))]
+    seed.seed()
+    seed.seed()
+    with db_factory() as db:
+        problems = list(db.scalars(select(Problem).order_by(Problem.id)))
+        assert len(problems) == 100
+        assert [(p.id, p.slug, p.title) for p in problems[:40]] == original
+        assert [(p.id, p.slug) for p in problems[40:]] == [
+            (index, item["slug"]) for index, item in enumerate(CATALOG[40:], 41)
+        ]
+        attempt = db.get(Submission, submission_id)
+        assert attempt.problem_id == 40 and attempt.status == "passed"
+        assert db.get(Bookmark, (member["id"], 40)) is not None
+    assert client.get("/api/problems?status=solved").json()["items"][0]["id"] == 40
 
 
 def test_solution_unlock_requires_full_submission_and_share_opt_in(client, member, db_factory):

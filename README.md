@@ -27,12 +27,12 @@ For a different port, change both `APP_PORT` and the corresponding origin in `AL
 
 ## What is included
 
-- 40 executable case studies: 10 each for runtime, logic, business flow, and edge cases, with 74 language variants and 226 public/hidden test cases. Each case includes buggy starter code, three progressive hints, and a reference solution. The catalog has search, tags, category/language/difficulty/progress filters, ordering, pagination, and bookmarks.
+- 100 executable case studies: 25 each for runtime, logic, business flow, and edge cases, with 134 language variants and 621 public/hidden test cases. Each case includes buggy starter code, three progressive hints, and a reference solution. The catalog has search, tags, category/language/difficulty/progress filters, ordering, five pages of problems, and bookmarks.
 - A simple interface with persistent light and dark themes, matching Monaco and notifications. Contextual actions open a case, resume a submission, request guidance, share a fix, and continue to the next challenge.
 - Locally bundled Monaco with highlighting, find, folding, bracket matching, and completion; language-specific drafts survive reloads. No Monaco CDN dependency.
 - Manual and AI-assist modes, public runs, full submissions, queued/running/completed feedback, readable errors, and per-case state assertions.
 - Python, Java 17, JavaScript, C++17, and Go execution. Problems offer the languages appropriate to their scenario.
-- Real rollback, authorization, idempotency, and synchronized multithreaded wallet challenges, plus search, sorting, graphs, Unicode, parsing, refunds, expiring reservations, approval gates, and shipment workflows.
+- Real rollback, authorization, idempotency, and synchronized multithreaded wallet challenges, plus search, sorting, graphs, Unicode, parsing, dynamic programming, exact decimals, graduated billing, atomic cart reservations, buffered event replay, rate limits, cancellations, and waitlist workflows.
 - Argon2 password hashing, revocable database-backed sessions in HttpOnly cookies, CSRF tokens, request-origin validation, rate limits, and ownership checks.
 - Submission history with editor restoration, optimal solutions unlocked by an accepted full submission, and optional sharing of accepted code/prompts.
 - Discussions linked to case studies, replies, votes, and author-controlled deletion.

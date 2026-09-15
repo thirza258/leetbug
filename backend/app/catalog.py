@@ -1,4 +1,7 @@
-"""Versioned, executable case studies. Test oracles never enter the sandbox."""
+"""Versioned, executable case studies. Test oracles never enter the sandbox.
+
+Append new problems: catalog order determines stable seeded database IDs.
+"""
 from textwrap import dedent
 
 
@@ -2087,5 +2090,2436 @@ CATALOG.extend([
         "Represent allowed transitions explicitly and validate each event against the current status before updating it. Terminal states have no outgoing transitions. Ignoring an event also means it cannot affect the validation of the next event. Time O(events), extra space O(1) for this fixed state machine.",
         ["Does every known status make sense after every other status?", "Terminal states should have no outgoing transitions.",
          "Use an allowed-transition table, apply only matching edges from the current state, and count all other events as ignored."], 23,
+    ),
+])
+
+
+# Problems 41–55: runtime failures.
+CATALOG.extend([
+    problem(
+        "missing-counter-key", "The first event crashes the counter",
+        "A telemetry counter increments a dictionary entry before that event type has ever been seen. Let new event types start at zero while retaining existing counts.",
+        "runtime", "easy", ["dictionaries", "initialization", "events"],
+        ["Input.counts maps string event types to nonnegative integer counts; input.events lists event types.",
+         "Return the updated counts, adding one for each event. Preserve existing entries, including zero counts.",
+         "There are at most 100 events. Event types may be empty strings."],
+        {"python": '''
+            def solve(data):
+                counts = data["counts"].copy()
+                for event in data["events"]:
+                    counts[event] += 1
+                return counts
+        '''},
+        {"python": '''
+            def solve(data):
+                counts = data["counts"].copy()
+                for event in data["events"]:
+                    counts[event] = counts.get(event, 0) + 1
+                return counts
+        '''},
+        [case("Known event", {"counts": {"click": 2}, "events": ["click"]}, {"click": 3}),
+         case("First event", {"counts": {}, "events": ["open"]}, {"open": 1}),
+         case("Repeated new event", {"counts": {}, "events": ["x", "x", "x"]}, {"x": 3}, True),
+         case("Preserve idle counter", {"counts": {"idle": 0}, "events": []}, {"idle": 0}, True),
+         case("Mixed types", {"counts": {"a": 4}, "events": ["b", "a", "b"]}, {"a": 5, "b": 2}, True),
+         case("Empty event name", {"counts": {}, "events": ["", ""]}, {"": 2}, True)],
+        "Read an absent counter as zero before incrementing it. Copying the initial dictionary also retains counters with no new events. Expected time O(counts + events), space O(distinct types).",
+        ["What value exists before a type's first event?", "The increment reads the key before assigning it.",
+         "Use counts.get(event, 0) + 1 for the new value."], 8,
+    ),
+    problem(
+        "empty-reduce", "An idle day breaks the report",
+        "A JavaScript report uses reduce to total job durations. Busy days work, but a day without jobs throws before a report can be returned.",
+        "runtime", "easy", ["reduce", "empty-input", "javascript"],
+        ["Return the sum of all integer milliseconds in input.durations.",
+         "An empty list returns 0. Values are nonnegative and at most 1,000,000; at most 100 values."],
+        {"javascript": '''
+            function solve(data) {
+              return data.durations.reduce((total, duration) => total + duration);
+            }
+            module.exports = { solve };
+        '''},
+        {"javascript": '''
+            function solve(data) {
+              return data.durations.reduce((total, duration) => total + duration, 0);
+            }
+            module.exports = { solve };
+        '''},
+        [case("Busy day", {"durations": [20, 30, 50]}, 100),
+         case("Idle day", {"durations": []}, 0),
+         case("One job", {"durations": [17]}, 17, True),
+         case("Zero durations", {"durations": [0, 0]}, 0, True),
+         case("Mixed durations", {"durations": [0, 4, 0, 6]}, 10, True),
+         case("Long jobs", {"durations": [1000000, 1000000]}, 2000000, True)],
+        "Supply the additive identity, zero, as reduce's initial accumulator. The same operation then covers empty, singleton, and longer collections. Time O(n), space O(1).",
+        ["How does reduce obtain its initial accumulator?", "An empty list has no first element to use.",
+         "Pass zero as the second argument to reduce."], 8,
+    ),
+    problem(
+        "unsafe-integer-token", "One bad token stops the import",
+        "A Java importer assumes every field fits in an integer. A malformed or oversized field aborts the entire batch instead of producing a missing-value marker.",
+        "runtime", "medium", ["parsing", "exceptions", "validation"],
+        ["For every string in input.tokens, return its signed 32-bit integer value or null if invalid.",
+         "Valid syntax is an optional ASCII + or - followed by one or more ASCII digits, with no whitespace. Leading zeros are allowed.",
+         "Reject values outside -2147483648 through 2147483647. There are at most 100 tokens of at most 30 characters."],
+        {"java": '''
+            import com.google.gson.*;
+            public class Solution {
+                public static JsonElement solve(JsonObject data) {
+                    JsonArray result = new JsonArray();
+                    for (JsonElement token : data.getAsJsonArray("tokens"))
+                        result.add(Integer.parseInt(token.getAsString()));
+                    return result;
+                }
+            }
+        '''},
+        {"java": '''
+            import com.google.gson.*;
+            public class Solution {
+                public static JsonElement solve(JsonObject data) {
+                    JsonArray result = new JsonArray();
+                    for (JsonElement token : data.getAsJsonArray("tokens")) {
+                        String text = token.getAsString();
+                        if (!text.matches("[+-]?[0-9]+")) { result.add(JsonNull.INSTANCE); continue; }
+                        try { result.add(Integer.parseInt(text)); }
+                        catch (NumberFormatException error) { result.add(JsonNull.INSTANCE); }
+                    }
+                    return result;
+                }
+            }
+        '''},
+        [case("Valid integers", {"tokens": ["12", "-3", "+4"]}, [12, -3, 4]),
+         case("Bad field in a batch", {"tokens": ["1", "oops", "2"]}, [1, None, 2]),
+         case("Limits", {"tokens": ["-2147483648", "2147483647", "2147483648", "-2147483649"]}, [-2147483648, 2147483647, None, None], True),
+         case("Strict syntax", {"tokens": ["", "+", " 3", "3 ", "1.0", "1e2", "１２"]}, [None] * 7, True),
+         case("Zeros", {"tokens": ["0009", "-0", "+000"]}, [9, 0, 0], True),
+         case("No tokens", {"tokens": []}, [], True)],
+        "Check the specified ASCII grammar and catch range failures for each token individually. A failed token must not discard successful values before or after it. Time O(total characters), output space O(tokens).",
+        ["Which conversion failures can escape the loop?", "Syntax and numeric range are separate checks.",
+         "Require [+-]?[0-9]+, parse inside a per-token try/catch, and append JSON null on failure."], 15,
+    ),
+    problem(
+        "missing-list-target", "The search that throws on a miss",
+        "A support tool looks up the first occurrence of an incident code. Its missing-code path raises an exception instead of returning the documented sentinel.",
+        "runtime", "easy", ["search", "exceptions", "sentinels"],
+        ["Return the first zero-based index of input.target in input.codes, or -1 when absent.",
+         "Codes and target are strings; duplicates and empty strings are valid. At most 1,000 codes."],
+        {"python": 'def solve(data):\n    return data["codes"].index(data["target"])'},
+        {"python": '''
+            def solve(data):
+                for index, value in enumerate(data["codes"]):
+                    if value == data["target"]:
+                        return index
+                return -1
+        '''},
+        [case("Known incident", {"codes": ["A", "B"], "target": "B"}, 1),
+         case("Unknown incident", {"codes": ["A"], "target": "Z"}, -1),
+         case("Empty archive", {"codes": [], "target": "A"}, -1, True),
+         case("First duplicate", {"codes": ["B", "A", "B"], "target": "B"}, 0, True),
+         case("Empty code", {"codes": ["A", ""], "target": ""}, 1, True),
+         case("Case sensitive", {"codes": ["abc"], "target": "ABC"}, -1, True)],
+        "Either catch the missing-value exception or scan with an explicit fallback. Returning on the first match preserves duplicate semantics. Time O(n), space O(1).",
+        ["Does list.index return a sentinel on failure?", "A missing item is an ordinary result in this contract.",
+         "Return on the first matching value and return -1 after the loop."], 8,
+    ),
+    problem(
+        "ragged-grid-access", "A short row crashes the preview",
+        "A table preview assumes every row has the same width. Sparse rows and invalid coordinates crash its cell lookup.",
+        "runtime", "medium", ["bounds", "ragged-arrays", "cpp"],
+        ["Input.rows is a list of integer lists of possibly different lengths. Input.queries contains [row, col] integer coordinates.",
+         "Return one cell value per query, or null if either coordinate is negative or outside that particular row.",
+         "There are at most 100 rows, cells per row, and queries; cell values are between -1,000,000 and 1,000,000."],
+        {"cpp": '''
+            #include <nlohmann/json.hpp>
+            using nlohmann::json;
+            json solve(const json& data) {
+                json result = json::array();
+                for (const auto& query : data.at("queries"))
+                    result.push_back(data.at("rows").at(query.at(0).get<int>()).at(query.at(1).get<int>()));
+                return result;
+            }
+        '''},
+        {"cpp": '''
+            #include <nlohmann/json.hpp>
+            using nlohmann::json;
+            json solve(const json& data) {
+                const auto& rows = data.at("rows");
+                json result = json::array();
+                for (const auto& query : data.at("queries")) {
+                    int r = query.at(0).get<int>(), c = query.at(1).get<int>();
+                    if (r < 0 || r >= static_cast<int>(rows.size()) || c < 0 ||
+                        c >= static_cast<int>(rows.at(r).size())) result.push_back(nullptr);
+                    else result.push_back(rows.at(r).at(c));
+                }
+                return result;
+            }
+        '''},
+        [case("Existing cells", {"rows": [[1, 2], [3]], "queries": [[0, 1], [1, 0]]}, [2, 3]),
+         case("Short second row", {"rows": [[1, 2], [3]], "queries": [[1, 1]]}, [None]),
+         case("Negative coordinates", {"rows": [[9]], "queries": [[-1, 0], [0, -1]]}, [None, None], True),
+         case("Empty rows", {"rows": [[], [0]], "queries": [[0, 0], [1, 0], [2, 0]]}, [None, 0, None], True),
+         case("No table", {"rows": [], "queries": [[0, 0]]}, [None], True),
+         case("No lookups", {"rows": [[-4]], "queries": []}, [], True)],
+        "Validate the row before reading its length, then validate the column against that row. Checking against the first row's width is insufficient for a ragged table. Time O(queries), output space O(queries).",
+        ["Which row determines a column's valid range?", "Negative coordinates must be rejected before unsigned index conversion.",
+         "Short-circuit row validation, then check the column against rows[r].size()."], 12,
+    ),
+    problem(
+        "null-tag-list", "An untagged article breaks the feed",
+        "Articles without a tag list make the feed formatter call map on null. The export still needs one formatted tag list for every article.",
+        "runtime", "easy", ["null", "arrays", "formatting"],
+        ["Input.articles is a list of objects whose tags field is missing, null, or an array of ASCII strings.",
+         "Return an array of arrays with every tag uppercased. Missing or null tags produce an empty array.",
+         "Preserve article order, tag order, duplicates, and empty tags. At most 100 articles and tags per article."],
+        {"javascript": '''
+            function solve(data) {
+              return data.articles.map(article => article.tags.map(tag => tag.toUpperCase()));
+            }
+            module.exports = { solve };
+        '''},
+        {"javascript": '''
+            function solve(data) {
+              return data.articles.map(article => (article.tags ?? []).map(tag => tag.toUpperCase()));
+            }
+            module.exports = { solve };
+        '''},
+        [case("Tagged article", {"articles": [{"tags": ["news", "dev"]}]}, [["NEWS", "DEV"]]),
+         case("Null tags", {"articles": [{"tags": None}]}, [[]]),
+         case("Missing tags", {"articles": [{}]}, [[]], True),
+         case("Mixed articles", {"articles": [{}, {"tags": ["a"]}, {"tags": []}]}, [[], ["A"], []], True),
+         case("Preserve tags", {"articles": [{"tags": ["", "x", "x"]}]}, [["", "X", "X"]], True),
+         case("No articles", {"articles": []}, [], True)],
+        "Normalize only the optional list before mapping it. Nullish coalescing supplies an empty array for missing and null tags while keeping article positions intact. Time O(total tag characters + articles), space proportional to the output.",
+        ["Which values can article.tags hold?", "Skipping an untagged article would change the output's shape.",
+         "Map every article and use (article.tags ?? []) for its tag list."], 8,
+    ),
+    problem(
+        "stale-discard", "A repeated unsubscribe crashes cleanup",
+        "An unsubscribe batch can contain users who already left. Removing those users from a set raises an exception and prevents later unsubscribes from being processed.",
+        "runtime", "easy", ["sets", "idempotency", "cleanup"],
+        ["Input.members and input.remove are lists of lowercase ASCII user IDs.",
+         "Remove every requested ID if present; missing and repeated removals are harmless.",
+         "Return the remaining unique IDs sorted alphabetically. Each list contains at most 100 entries."],
+        {"python": '''
+            def solve(data):
+                members = set(data["members"])
+                for user in data["remove"]:
+                    members.remove(user)
+                return sorted(members)
+        '''},
+        {"python": '''
+            def solve(data):
+                members = set(data["members"])
+                for user in data["remove"]:
+                    members.discard(user)
+                return sorted(members)
+        '''},
+        [case("Existing member", {"members": ["a", "b"], "remove": ["a"]}, ["b"]),
+         case("Already gone", {"members": ["b"], "remove": ["a"]}, ["b"]),
+         case("Repeated removal", {"members": ["a", "b"], "remove": ["a", "a"]}, ["b"], True),
+         case("Empty membership", {"members": [], "remove": ["x"]}, [], True),
+         case("Unique sorted output", {"members": ["c", "a", "c", "b"], "remove": []}, ["a", "b", "c"], True),
+         case("Continue after a miss", {"members": ["a", "b"], "remove": ["x", "b"]}, ["a"], True)],
+        "Use the set operation that tolerates absence. Handling missing IDs inside the loop preserves the rest of the batch and makes retries harmless. Expected time O(members + removals + k log k) for k surviving IDs, space O(members).",
+        ["Should a second unsubscribe differ from the first?", "Set removal methods have different missing-item behavior.",
+         "Use discard for each requested ID, then sort the remaining set."], 8,
+    ),
+    problem(
+        "optional-go-count", "The optional count panics",
+        "A Go endpoint directly asserts the type of an optional JSON number. Requests without the field panic instead of using the documented default.",
+        "runtime", "easy", ["go", "type-assertions", "optional-fields"],
+        ["Input.count is missing, null, or an integer between -1,000,000 and 1,000,000.",
+         "Return twice count, using zero when count is missing or null. Negative values are valid."],
+        {"go": '''
+            package main
+            func Solve(data map[string]interface{}) interface{} {
+                return int(data["count"].(float64)) * 2
+            }
+        '''},
+        {"go": '''
+            package main
+            func Solve(data map[string]interface{}) interface{} {
+                count, ok := data["count"].(float64)
+                if !ok { return 0 }
+                return int(count) * 2
+            }
+        '''},
+        [case("Present count", {"count": 7}, 14), case("Missing count", {}, 0),
+         case("Null count", {"count": None}, 0, True), case("Zero count", {"count": 0}, 0, True),
+         case("Negative adjustment", {"count": -9}, -18, True), case("Upper bound", {"count": 1000000}, 2000000, True)],
+        "A JSON object lookup can yield a nil interface. Use the comma-ok type assertion to distinguish a number from an absent or null value before converting it. Time and space O(1).",
+        ["What does the interface contain when the key is absent?", "A one-result type assertion panics when the dynamic type differs.",
+         "Use count, ok := data[\"count\"].(float64), returning zero when ok is false."], 10,
+    ),
+])
+
+CATALOG.extend([
+    problem(
+        "empty-stack-peek", "A preview with nothing on the stack",
+        "A Java history preview reads the most recent item even when the stack is empty. A preview must be safe and must never consume the item it displays.",
+        "runtime", "easy", ["stack", "empty-input", "java"],
+        ["Process input.operations: {op: 'push', value: integer} appends to a stack; {op: 'peek'} observes its top.",
+         "Return one value per peek, using null for an empty stack. Peeking does not remove an item.",
+         "The stack starts empty. At most 100 operations; integer values have magnitude at most 1,000,000."],
+        {"java": '''
+            import com.google.gson.*;
+            import java.util.*;
+            public class Solution {
+                public static JsonElement solve(JsonObject data) {
+                    Deque<Integer> stack = new ArrayDeque<>();
+                    JsonArray result = new JsonArray();
+                    for (JsonElement raw : data.getAsJsonArray("operations")) {
+                        JsonObject op = raw.getAsJsonObject();
+                        if (op.get("op").getAsString().equals("push")) stack.push(op.get("value").getAsInt());
+                        else result.add(stack.element());
+                    }
+                    return result;
+                }
+            }
+        '''},
+        {"java": '''
+            import com.google.gson.*;
+            import java.util.*;
+            public class Solution {
+                public static JsonElement solve(JsonObject data) {
+                    Deque<Integer> stack = new ArrayDeque<>();
+                    JsonArray result = new JsonArray();
+                    for (JsonElement raw : data.getAsJsonArray("operations")) {
+                        JsonObject op = raw.getAsJsonObject();
+                        if (op.get("op").getAsString().equals("push")) stack.push(op.get("value").getAsInt());
+                        else {
+                            Integer value = stack.peek();
+                            result.add(value == null ? JsonNull.INSTANCE : new JsonPrimitive(value));
+                        }
+                    }
+                    return result;
+                }
+            }
+        '''},
+        [case("Preview a value", {"operations": [{"op": "push", "value": 3}, {"op": "peek"}]}, [3]),
+         case("Empty preview", {"operations": [{"op": "peek"}]}, [None]),
+         case("Non-destructive preview", {"operations": [{"op": "push", "value": 0}, {"op": "peek"}, {"op": "peek"}]}, [0, 0], True),
+         case("Most recent value", {"operations": [{"op": "push", "value": 1}, {"op": "push", "value": -2}, {"op": "peek"}]}, [-2], True),
+         case("Recover after empty", {"operations": [{"op": "peek"}, {"op": "push", "value": 4}, {"op": "peek"}]}, [None, 4], True),
+         case("No operations", {"operations": []}, [], True)],
+        "Deque.peek returns null on an empty deque, whereas element throws. Convert that null to JSON null and keep the observation separate from removal. Time O(operations), space O(pushes + peeks).",
+        ["Which deque observation method tolerates an empty collection?", "Popping instead would change the next preview.",
+         "Use peek and append JsonNull.INSTANCE if it returns null."], 10,
+    ),
+    problem(
+        "damaged-utf8", "A damaged byte hides the whole message",
+        "A log viewer rejects an entire byte stream when one UTF-8 sequence is damaged. It should display the readable parts and replacement characters for malformed sequences.",
+        "runtime", "medium", ["unicode", "decoding", "error-handling"],
+        ["Input.bytes is a list of integers from 0 to 255, with at most 1,000 entries.",
+         "Return its UTF-8 decoding using Python's replacement error policy: malformed sequences become U+FFFD.",
+         "Do not drop damaged bytes silently or decode the stream as a different character encoding."],
+        {"python": 'def solve(data):\n    return bytes(data["bytes"]).decode("utf-8")'},
+        {"python": 'def solve(data):\n    return bytes(data["bytes"]).decode("utf-8", errors="replace")'},
+        [case("Valid text", {"bytes": [72, 105]}, "Hi"),
+         case("Damaged byte", {"bytes": [65, 255, 66]}, "A\ufffdB"),
+         case("Truncated sequence", {"bytes": [226, 130]}, "\ufffd", True),
+         case("Multibyte text", {"bytes": [240, 159, 152, 128, 195, 169]}, "😀é", True),
+         case("Stray continuation", {"bytes": [128, 97, 128]}, "\ufffda\ufffd", True),
+         case("Empty stream", {"bytes": []}, "", True)],
+        "Keep the UTF-8 decoder and change its error policy to replacement. This preserves valid multibyte characters and visible evidence of corruption without aborting the whole message. Time and output space O(bytes).",
+        ["Does one malformed sequence have to abort decoding?", "Ignoring errors would lose evidence required by the contract.",
+         "Decode as UTF-8 with errors='replace'."], 12,
+    ),
+    problem(
+        "cyclic-alias-resolution", "The alias chain never reaches a value",
+        "A configuration resolver recursively follows aliases. Cycles and long chains exhaust its call stack, while a missing endpoint raises a key error.",
+        "runtime", "hard", ["cycles", "iteration", "configuration"],
+        ["Input.values maps string names to integer values; input.aliases maps names to other names; input.start is a name.",
+         "Resolve start by following aliases until a value is found. A value takes precedence if a name has both a value and an alias.",
+         "Return null if a name is missing from both maps or a name is visited twice. Values may be zero or negative.",
+         "There are at most 2,000 names. Resolve long chains without depending on Python's recursion limit."],
+        {"python": '''
+            def solve(data):
+                def resolve(name):
+                    if name in data["values"]:
+                        return data["values"][name]
+                    return resolve(data["aliases"][name])
+                return resolve(data["start"])
+        '''},
+        {"python": '''
+            def solve(data):
+                name, seen = data["start"], set()
+                while name not in seen:
+                    if name in data["values"]:
+                        return data["values"][name]
+                    if name not in data["aliases"]:
+                        return None
+                    seen.add(name)
+                    name = data["aliases"][name]
+                return None
+        '''},
+        [case("Resolved alias", {"values": {"port": 80}, "aliases": {"web": "port"}, "start": "web"}, 80),
+         case("Alias cycle", {"values": {}, "aliases": {"a": "b", "b": "a"}, "start": "a"}, None),
+         case("Missing endpoint", {"values": {}, "aliases": {"a": "missing"}, "start": "a"}, None, True),
+         case("Value takes precedence", {"values": {"a": 0}, "aliases": {"a": "a"}, "start": "a"}, 0, True),
+         case("Long chain", {"values": {"n1500": -7}, "aliases": {f"n{i}": f"n{i + 1}" for i in range(1500)}, "start": "n0"}, -7, True),
+         case("Self alias", {"values": {}, "aliases": {"x": "x"}, "start": "x"}, None, True),
+         case("Empty configuration", {"values": {}, "aliases": {}, "start": ""}, None, True)],
+        "Follow aliases iteratively and keep the names already visited. Test value membership before following an alias so zero values and value precedence work correctly. Expected time and space O(chain length).",
+        ["What stops a chain that points back to an earlier name?", "A visited set handles cycles, but recursion still fails on sufficiently long acyclic chains.",
+         "Use a loop: check for a value, reject a missing alias, record the name, and follow the next link."], 22,
+    ),
+    problem(
+        "mixed-event-values", "One unexpected event type panics the reader",
+        "A Go event reader assumes every JSON entry is an object containing a number. The feed also includes control messages, nulls, and incomplete objects.",
+        "runtime", "medium", ["go", "type-assertions", "json"],
+        ["Input.entries is an array of arbitrary JSON values. Any numeric value in the input is an integer with magnitude at most 1,000,000.",
+         "Sum value fields only from entries that are objects and whose value field is a number.",
+         "Ignore other entries and nonnumeric or missing value fields. Do not coerce strings or booleans. At most 100 entries."],
+        {"go": '''
+            package main
+            func Solve(data map[string]interface{}) interface{} {
+                total := 0
+                for _, raw := range data["entries"].([]interface{}) {
+                    entry := raw.(map[string]interface{})
+                    total += int(entry["value"].(float64))
+                }
+                return total
+            }
+        '''},
+        {"go": '''
+            package main
+            func Solve(data map[string]interface{}) interface{} {
+                total := 0
+                for _, raw := range data["entries"].([]interface{}) {
+                    entry, ok := raw.(map[string]interface{})
+                    if !ok { continue }
+                    value, ok := entry["value"].(float64)
+                    if ok { total += int(value) }
+                }
+                return total
+            }
+        '''},
+        [case("Numeric events", {"entries": [{"value": 2}, {"value": 3}]}, 5),
+         case("Control entry", {"entries": ["ping", {"value": 4}]}, 4),
+         case("Missing and null", {"entries": [None, {}, {"value": None}]}, 0, True),
+         case("No coercion", {"entries": [{"value": "5"}, {"value": True}, {"value": []}, 7]}, 0, True),
+         case("Signed values", {"entries": [{"value": -9}, [], {"value": 0}, {"value": 4}]}, -5, True),
+         case("Empty feed", {"entries": []}, 0, True)],
+        "Check the dynamic type at each level independently. Successful object conversion does not guarantee that its value field is numeric. Expected time O(entries), space O(1).",
+        ["There are two type assumptions inside the loop.", "Validate the entry object and its numeric field separately.",
+         "Use comma-ok assertions for map[string]interface{} and float64; skip either mismatch."], 14,
+    ),
+    problem(
+        "substring-overrun", "A stale cursor crashes the snippet",
+        "A C++ snippet endpoint receives cursors from an earlier revision of a document. An offset beyond the shortened text throws instead of returning an empty snippet.",
+        "runtime", "easy", ["strings", "bounds", "cpp"],
+        ["Input.text is ASCII; input.start and input.length are integers of magnitude at most 1,000,000.",
+         "Clamp a negative start to zero. Return up to length characters from that position, truncated at the end.",
+         "Return an empty string for length <= 0 or start at or beyond the text length. Text has at most 1,000 characters."],
+        {"cpp": '''
+            #include <nlohmann/json.hpp>
+            #include <string>
+            using nlohmann::json;
+            json solve(const json& data) {
+                return data.at("text").get<std::string>().substr(data.at("start").get<int>(), data.at("length").get<int>());
+            }
+        '''},
+        {"cpp": '''
+            #include <nlohmann/json.hpp>
+            #include <string>
+            #include <algorithm>
+            using nlohmann::json;
+            json solve(const json& data) {
+                std::string text = data.at("text").get<std::string>();
+                int start = std::max(0, data.at("start").get<int>()), length = data.at("length").get<int>();
+                if (length <= 0 || start >= static_cast<int>(text.size())) return "";
+                return text.substr(start, length);
+            }
+        '''},
+        [case("Ordinary snippet", {"text": "abcdef", "start": 2, "length": 3}, "cde"),
+         case("Stale cursor", {"text": "abc", "start": 8, "length": 2}, ""),
+         case("Negative start", {"text": "abc", "start": -2, "length": 2}, "ab", True),
+         case("Negative length", {"text": "abc", "start": 1, "length": -1}, "", True),
+         case("Truncated snippet", {"text": "abc", "start": 1, "length": 100}, "bc", True),
+         case("Empty text", {"text": "", "start": 0, "length": 3}, "", True),
+         case("At the end", {"text": "abc", "start": 3, "length": 0}, "", True)],
+        "Normalize signed coordinates before passing them to an API that takes unsigned sizes. Guard the start position; substr already truncates a positive length at the end. Time and space O(snippet length).",
+        ["What happens when substr's position exceeds the string length?", "Negative integers become large unsigned sizes if passed through unchecked.",
+         "Clamp start to zero, reject nonpositive length or an out-of-range start, then call substr."], 10,
+    ),
+    problem(
+        "closure-counter-scope", "The callback cannot see its counter",
+        "A Python callback increments an enclosing counter. The assignment makes the name local to the callback, so its first invocation raises an unbound-local error.",
+        "runtime", "medium", ["closures", "scope", "python"],
+        ["Input.start is an integer of magnitude at most 1,000,000; input.steps is an integer from 0 through 100.",
+         "Invoke an incrementing callback steps times and return {values: [counter after each call], final: counter}.",
+         "Keep callback state across calls within one solve invocation. Zero steps returns an empty values list and the starting counter."],
+        {"python": '''
+            def solve(data):
+                count = data["start"]
+                def increment():
+                    count += 1
+                    return count
+                values = [increment() for _ in range(data["steps"])]
+                return {"values": values, "final": count}
+        '''},
+        {"python": '''
+            def solve(data):
+                count = data["start"]
+                def increment():
+                    nonlocal count
+                    count += 1
+                    return count
+                values = [increment() for _ in range(data["steps"])]
+                return {"values": values, "final": count}
+        '''},
+        [case("No callbacks", {"start": 4, "steps": 0}, {"values": [], "final": 4}),
+         case("One callback", {"start": 4, "steps": 1}, {"values": [5], "final": 5}),
+         case("Shared state", {"start": 0, "steps": 3}, {"values": [1, 2, 3], "final": 3}, True),
+         case("Negative start", {"start": -2, "steps": 3}, {"values": [-1, 0, 1], "final": 1}, True),
+         case("Large start", {"start": 1000000, "steps": 2}, {"values": [1000001, 1000002], "final": 1000002}, True),
+         case("Many calls", {"start": 0, "steps": 100}, {"values": list(range(1, 101)), "final": 100}, True)],
+        "Declare count nonlocal inside the callback so assignment updates the enclosing invocation's counter. A global would incorrectly share state between independent uses. Time and output space O(steps).",
+        ["Assignment changes how Python resolves a name inside a function.", "The counter belongs to the enclosing solve call, not the module.",
+         "Declare nonlocal count before incrementing it."], 12,
+    ),
+    problem(
+        "literal-replace-pattern", "A bracket breaks find and replace",
+        "A Java text tool treats a user's literal search text as a regular expression. A bracket can throw a syntax error, and dots or dollar signs can change the replacement's meaning.",
+        "runtime", "medium", ["strings", "regex", "escaping"],
+        ["Input.text, input.find, and input.replacement are ASCII strings of at most 1,000 characters.",
+         "Replace all non-overlapping literal occurrences of find with the literal replacement string.",
+         "If find is empty, return text unchanged. Regex operators, dollar signs, and backslashes have no special meaning."],
+        {"java": '''
+            import com.google.gson.*;
+            public class Solution {
+                public static JsonElement solve(JsonObject data) {
+                    return new JsonPrimitive(data.get("text").getAsString().replaceAll(
+                        data.get("find").getAsString(), data.get("replacement").getAsString()));
+                }
+            }
+        '''},
+        {"java": '''
+            import com.google.gson.*;
+            public class Solution {
+                public static JsonElement solve(JsonObject data) {
+                    String text = data.get("text").getAsString(), find = data.get("find").getAsString();
+                    return new JsonPrimitive(find.isEmpty() ? text : text.replace(find, data.get("replacement").getAsString()));
+                }
+            }
+        '''},
+        [case("Simple replacement", {"text": "cat cat", "find": "cat", "replacement": "dog"}, "dog dog"),
+         case("Literal bracket", {"text": "a[b[", "find": "[", "replacement": "("}, "a(b("),
+         case("Literal dot", {"text": "a.b", "find": ".", "replacement": "!"}, "a!b", True),
+         case("Literal replacement", {"text": "xx", "find": "x", "replacement": "$1\\"}, "$1\\$1\\", True),
+         case("Empty search", {"text": "abc", "find": "", "replacement": "-"}, "abc", True),
+         case("Non-overlapping matches", {"text": "aaaaa", "find": "aa", "replacement": "b"}, "bba", True),
+         case("No match", {"text": "", "find": "x", "replacement": "y"}, "", True)],
+        "Choose String.replace's literal CharSequence overload and explicitly handle an empty search. Literal replacement avoids interpreting both the search pattern and replacement text. Space O(output length); search work depends on the text and pattern lengths.",
+        ["Are users entering patterns or ordinary text?", "Quoting only the pattern still leaves replacement metacharacters to consider.",
+         "Guard an empty search, then use String.replace(find, replacement)."], 14,
+    ),
+])
+
+
+# Problems 56–70: incorrect algorithms and control flow.
+CATALOG.extend([
+    problem(
+        "two-sum-self-match", "The pair uses the same entry twice",
+        "A reconciliation helper finds two amounts that match a target, but it can pair a transaction with itself because it records the current amount too early.",
+        "logic", "easy", ["hash-map", "two-sum", "ordering"],
+        ["Input.nums is a list of at most 1,000 integers; values and input.target have magnitude at most 1,000,000.",
+         "Return [j, i] with j < i and nums[j] + nums[i] == target. Choose the smallest possible i, then the smallest j.",
+         "Return null when no pair exists. Each index may be used only once. Use expected O(n) time."],
+        {"python": '''
+            def solve(data):
+                seen = {}
+                for i, value in enumerate(data["nums"]):
+                    seen.setdefault(value, i)
+                    complement = data["target"] - value
+                    if complement in seen:
+                        return [seen[complement], i]
+                return None
+        '''},
+        {"python": '''
+            def solve(data):
+                seen = {}
+                for i, value in enumerate(data["nums"]):
+                    complement = data["target"] - value
+                    if complement in seen:
+                        return [seen[complement], i]
+                    seen.setdefault(value, i)
+                return None
+        '''},
+        [case("Ordinary pair", {"nums": [2, 7, 11], "target": 9}, [0, 1]),
+         case("Cannot reuse one entry", {"nums": [3], "target": 6}, None),
+         case("Equal values at distinct indices", {"nums": [3, 3], "target": 6}, [0, 1], True),
+         case("Earliest matching partner", {"nums": [1, 1, 4], "target": 5}, [0, 2], True),
+         case("Negative and zero", {"nums": [-2, 0, 2], "target": 0}, [0, 2], True),
+         case("No entries", {"nums": [], "target": 0}, None, True)],
+        "Look for a complement among earlier entries before inserting the current entry. Keep the first index for each value to satisfy the tie rule. Expected time and space O(n).",
+        ["Which indices are already eligible when entry i is checked?", "Recording i first lets an amount match itself.",
+         "Check the complement first, then store the first index for the current value."], 12,
+    ),
+    problem(
+        "prefix-range-offset", "Every range loses its final reading",
+        "A Go metrics service builds prefix sums correctly but uses the wrong endpoint when answering inclusive range queries.",
+        "logic", "medium", ["prefix-sums", "ranges", "off-by-one"],
+        ["Input.values contains at most 1,000 integers of magnitude at most 1,000,000. Input.queries lists valid inclusive [left, right] index pairs.",
+         "Return the sum from left through right for each query. Empty values has no queries.",
+         "Use O(values + queries) time, with at most 1,000 queries."],
+        {"go": '''
+            package main
+            func Solve(data map[string]interface{}) interface{} {
+                values := data["values"].([]interface{})
+                prefix := make([]int, len(values)+1)
+                for i, raw := range values { prefix[i+1] = prefix[i] + int(raw.(float64)) }
+                result := []int{}
+                for _, raw := range data["queries"].([]interface{}) {
+                    query := raw.([]interface{}); left, right := int(query[0].(float64)), int(query[1].(float64))
+                    result = append(result, prefix[right]-prefix[left])
+                }
+                return result
+            }
+        '''},
+        {"go": '''
+            package main
+            func Solve(data map[string]interface{}) interface{} {
+                values := data["values"].([]interface{})
+                prefix := make([]int, len(values)+1)
+                for i, raw := range values { prefix[i+1] = prefix[i] + int(raw.(float64)) }
+                result := []int{}
+                for _, raw := range data["queries"].([]interface{}) {
+                    query := raw.([]interface{}); left, right := int(query[0].(float64)), int(query[1].(float64))
+                    result = append(result, prefix[right+1]-prefix[left])
+                }
+                return result
+            }
+        '''},
+        [case("Full range", {"values": [2, 4, 6], "queries": [[0, 2]]}, [12]),
+         case("Single reading", {"values": [7], "queries": [[0, 0]]}, [7]),
+         case("Interior range", {"values": [10, -2, 5, 9], "queries": [[1, 2], [3, 3]]}, [3, 9], True),
+         case("Repeated queries", {"values": [0, 3], "queries": [[0, 1], [0, 1], [0, 0]]}, [3, 3, 0], True),
+         case("Negative total", {"values": [-5, -4, 2], "queries": [[0, 1], [1, 2]]}, [-9, -2], True),
+         case("No readings", {"values": [], "queries": []}, [], True)],
+        "prefix[k] contains the first k values, excluding index k. An inclusive right endpoint therefore needs prefix[right + 1], then subtract prefix[left]. Time O(n + q), space O(n + q).",
+        ["What exactly does prefix[k] include?", "A one-element range should return that element, not zero.",
+         "Compute prefix[right + 1] - prefix[left]."], 14,
+    ),
+    problem(
+        "stable-priority-sort", "Equal-priority jobs jump the queue",
+        "A job dashboard sorts by priority but adds an ID tie-breaker that silently changes arrival order. Equal-priority work should remain first come, first served.",
+        "logic", "medium", ["sorting", "stability", "queues"],
+        ["Input.jobs lists {id: string, priority: integer} in arrival order. IDs are unique lowercase ASCII strings; priorities have magnitude at most 100.",
+         "Return IDs ordered by descending priority, preserving arrival order for equal priorities. At most 100 jobs."],
+        {"javascript": '''
+            function solve(data) {
+              return [...data.jobs].sort((a, b) => b.priority - a.priority || (a.id < b.id ? -1 : 1)).map(job => job.id);
+            }
+            module.exports = { solve };
+        '''},
+        {"javascript": '''
+            function solve(data) {
+              return [...data.jobs].sort((a, b) => b.priority - a.priority).map(job => job.id);
+            }
+            module.exports = { solve };
+        '''},
+        [case("Different priorities", {"jobs": [{"id": "a", "priority": 1}, {"id": "b", "priority": 3}]}, ["b", "a"]),
+         case("Preserve arrival order", {"jobs": [{"id": "z", "priority": 2}, {"id": "a", "priority": 2}]}, ["z", "a"]),
+         case("Interleaved ties", {"jobs": [{"id": "c", "priority": 1}, {"id": "z", "priority": 2}, {"id": "a", "priority": 1}, {"id": "b", "priority": 2}]}, ["z", "b", "c", "a"], True),
+         case("Negative priorities", {"jobs": [{"id": "z", "priority": -1}, {"id": "a", "priority": -1}, {"id": "b", "priority": 0}]}, ["b", "z", "a"], True),
+         case("One job", {"jobs": [{"id": "only", "priority": 0}]}, ["only"], True),
+         case("No jobs", {"jobs": []}, [], True)],
+        "Return zero from the comparator when priorities tie. JavaScript's stable sort retains the original order of equal elements. Sorting takes O(n log n) comparisons, with O(n) space for the copied array and output.",
+        ["Which field defines the ordering of equal-priority jobs?", "The ID is unrelated to when a job arrived.",
+         "Compare only descending priority and let the stable sort preserve ties."], 12,
+    ),
+    problem(
+        "reversed-dependencies", "The build runs before its prerequisites",
+        "A build planner reverses the meaning of each dependency edge. It produces a plausible order that starts tasks before the work they require.",
+        "logic", "hard", ["graphs", "topological-sort", "dependencies"],
+        ["Input.tasks lists unique lowercase ASCII task names. Each input.dependencies pair [before, after] requires before to finish first; both names exist.",
+         "Return a valid task order, always choosing the alphabetically smallest currently available task. Repeated dependency pairs count only once.",
+         "Return null if any cycle prevents completion; an empty task list returns []. At most 100 tasks and 500 dependency pairs."],
+        {"python": '''
+            import heapq
+            def solve(data):
+                edges = {name: set() for name in data["tasks"]}
+                indegree = dict.fromkeys(data["tasks"], 0)
+                for before, after in data["dependencies"]:
+                    if before not in edges[after]:
+                        edges[after].add(before)
+                        indegree[before] += 1
+                ready = [name for name in indegree if indegree[name] == 0]
+                heapq.heapify(ready)
+                result = []
+                while ready:
+                    name = heapq.heappop(ready)
+                    result.append(name)
+                    for next_name in edges[name]:
+                        indegree[next_name] -= 1
+                        if indegree[next_name] == 0:
+                            heapq.heappush(ready, next_name)
+                return result if len(result) == len(indegree) else None
+        '''},
+        {"python": '''
+            import heapq
+            def solve(data):
+                edges = {name: set() for name in data["tasks"]}
+                indegree = dict.fromkeys(data["tasks"], 0)
+                for before, after in data["dependencies"]:
+                    if after not in edges[before]:
+                        edges[before].add(after)
+                        indegree[after] += 1
+                ready = [name for name in indegree if indegree[name] == 0]
+                heapq.heapify(ready)
+                result = []
+                while ready:
+                    name = heapq.heappop(ready)
+                    result.append(name)
+                    for next_name in edges[name]:
+                        indegree[next_name] -= 1
+                        if indegree[next_name] == 0:
+                            heapq.heappush(ready, next_name)
+                return result if len(result) == len(indegree) else None
+        '''},
+        [case("Independent tasks", {"tasks": ["z", "a"], "dependencies": []}, ["a", "z"]),
+         case("Build before deploy", {"tasks": ["build", "deploy"], "dependencies": [["build", "deploy"]]}, ["build", "deploy"]),
+         case("Newly available task wins", {"tasks": ["z", "a", "b"], "dependencies": [["a", "b"]]}, ["a", "b", "z"], True),
+         case("Repeated dependency", {"tasks": ["a", "b"], "dependencies": [["a", "b"], ["a", "b"]]}, ["a", "b"], True),
+         case("Cycle with isolated task", {"tasks": ["a", "b", "c"], "dependencies": [["a", "b"], ["b", "a"]]}, None, True),
+         case("Self dependency", {"tasks": ["a"], "dependencies": [["a", "a"]]}, None, True),
+         case("No tasks", {"tasks": [], "dependencies": []}, [], True)],
+        "An edge goes from a prerequisite to its dependent, and the dependent receives the incoming-edge count. Deduplicate edges, use a min-heap for ready tasks, and reject a partial traversal. Time O(E + V log V), space O(V + E).",
+        ["Which task should gain an unmet-prerequisite count for [before, after]?", "Outgoing edges should identify tasks released by completing the current task.",
+         "Store after in edges[before], increment indegree[after] once, and keep the existing heap-based traversal."], 25,
+    ),
+    problem(
+        "bfs-stack-route", "The shortest route takes a detour",
+        "A network explorer marks a node when first discovered, but its LIFO work list can discover that node through a longer route first.",
+        "logic", "medium", ["bfs", "graphs", "queues"],
+        ["Input.n is from 1 through 50; nodes are numbered 0 through n-1. Input.edges lists undirected [a, b] links, and input.start is a valid node.",
+         "Return one minimum hop count per node, using null for unreachable nodes and zero for start.",
+         "Self links, repeated links, and cycles are allowed. At most 200 links; use O(n + edges) time."],
+        {"cpp": '''
+            #include <nlohmann/json.hpp>
+            #include <vector>
+            using nlohmann::json;
+            json solve(const json& data) {
+                int n = data.at("n"), start = data.at("start");
+                std::vector<std::vector<int>> graph(n);
+                for (const auto& edge : data.at("edges")) {
+                    int a = edge.at(0), b = edge.at(1); graph[a].push_back(b); graph[b].push_back(a);
+                }
+                std::vector<int> distance(n, -1), pending{start}; distance[start] = 0;
+                while (!pending.empty()) {
+                    int node = pending.back(); pending.pop_back();
+                    for (int next : graph[node]) if (distance[next] == -1) {
+                        distance[next] = distance[node] + 1; pending.push_back(next);
+                    }
+                }
+                json result = json::array();
+                for (int value : distance) result.push_back(value < 0 ? json(nullptr) : json(value));
+                return result;
+            }
+        '''},
+        {"cpp": '''
+            #include <nlohmann/json.hpp>
+            #include <vector>
+            #include <queue>
+            using nlohmann::json;
+            json solve(const json& data) {
+                int n = data.at("n"), start = data.at("start");
+                std::vector<std::vector<int>> graph(n);
+                for (const auto& edge : data.at("edges")) {
+                    int a = edge.at(0), b = edge.at(1); graph[a].push_back(b); graph[b].push_back(a);
+                }
+                std::vector<int> distance(n, -1); distance[start] = 0;
+                std::queue<int> pending; pending.push(start);
+                while (!pending.empty()) {
+                    int node = pending.front(); pending.pop();
+                    for (int next : graph[node]) if (distance[next] == -1) {
+                        distance[next] = distance[node] + 1; pending.push(next);
+                    }
+                }
+                json result = json::array();
+                for (int value : distance) result.push_back(value < 0 ? json(nullptr) : json(value));
+                return result;
+            }
+        '''},
+        [case("A simple chain", {"n": 3, "start": 0, "edges": [[0, 1], [1, 2]]}, [0, 1, 2]),
+         case("Long detour discovered first", {"n": 6, "start": 0, "edges": [[0, 1], [0, 2], [2, 3], [3, 4], [4, 5], [1, 5]]}, [0, 1, 1, 2, 3, 2]),
+         case("Disconnected", {"n": 3, "start": 1, "edges": []}, [None, 0, None], True),
+         case("Self and repeated links", {"n": 2, "start": 0, "edges": [[0, 0], [0, 1], [0, 1]]}, [0, 1], True),
+         case("Triangle", {"n": 3, "start": 2, "edges": [[0, 1], [1, 2], [0, 2]]}, [1, 1, 0], True),
+         case("One node", {"n": 1, "start": 0, "edges": []}, [0], True)],
+        "A FIFO queue processes all nodes at one distance before exploring the next distance. First discovery is then a shortest path in an unweighted graph. Time O(V + E), space O(V + E).",
+        ["Does the work list explore by increasing distance?", "A stack completes a deep branch before returning to shorter alternatives.",
+         "Replace the LIFO work list with a queue; mark nodes when enqueuing them."], 18,
+    ),
+    problem(
+        "reset-running-total", "The cumulative chart keeps starting over",
+        "A dashboard's running total resets inside the loop, so every point shows only that day's change.",
+        "logic", "easy", ["accumulators", "scope", "analytics"],
+        ["Return the inclusive prefix sums of input.changes in order.",
+         "Changes are integers of magnitude at most 1,000,000; at most 1,000 changes. Empty input returns []."],
+        {"python": '''
+            def solve(data):
+                result = []
+                for change in data["changes"]:
+                    total = 0
+                    total += change
+                    result.append(total)
+                return result
+        '''},
+        {"python": '''
+            def solve(data):
+                result, total = [], 0
+                for change in data["changes"]:
+                    total += change
+                    result.append(total)
+                return result
+        '''},
+        [case("One day", {"changes": [5]}, [5]), case("Several days", {"changes": [5, 2, 3]}, [5, 7, 10]),
+         case("Negative adjustments", {"changes": [4, -6, 3]}, [4, -2, 1], True),
+         case("Zero changes", {"changes": [2, 0, 0]}, [2, 2, 2], True),
+         case("No days", {"changes": []}, [], True), case("All negative", {"changes": [-2, -3]}, [-2, -5], True)],
+        "Initialize the accumulator once before processing changes. Each output should include the current change and all earlier ones. Time and output space O(n).",
+        ["How long should the total survive?", "The initialization currently runs once per change.",
+         "Move total = 0 before the loop and keep appending after each addition."], 8,
+    ),
+    problem(
+        "binary-search-first", "The duplicate search lands in the middle",
+        "A Java lookup stops at any matching record. The caller needs the first matching index so it can begin scanning the entire duplicate group.",
+        "logic", "medium", ["binary-search", "duplicates", "boundaries"],
+        ["Input.nums is a nondecreasing list of at most 1,000 integers; input.target is an integer. Values have magnitude at most 1,000,000.",
+         "Return the first zero-based index equal to target, or -1 if absent. Use O(log n) time."],
+        {"java": '''
+            import com.google.gson.*;
+            public class Solution {
+                public static JsonElement solve(JsonObject data) {
+                    JsonArray nums = data.getAsJsonArray("nums"); int target = data.get("target").getAsInt();
+                    int low = 0, high = nums.size() - 1;
+                    while (low <= high) {
+                        int middle = low + (high - low) / 2, value = nums.get(middle).getAsInt();
+                        if (value == target) return new JsonPrimitive(middle);
+                        if (value < target) low = middle + 1; else high = middle - 1;
+                    }
+                    return new JsonPrimitive(-1);
+                }
+            }
+        '''},
+        {"java": '''
+            import com.google.gson.*;
+            public class Solution {
+                public static JsonElement solve(JsonObject data) {
+                    JsonArray nums = data.getAsJsonArray("nums"); int target = data.get("target").getAsInt();
+                    int low = 0, high = nums.size();
+                    while (low < high) {
+                        int middle = low + (high - low) / 2;
+                        if (nums.get(middle).getAsInt() < target) low = middle + 1; else high = middle;
+                    }
+                    return new JsonPrimitive(low < nums.size() && nums.get(low).getAsInt() == target ? low : -1);
+                }
+            }
+        '''},
+        [case("Unique match", {"nums": [1, 3, 5], "target": 3}, 1),
+         case("Duplicate group", {"nums": [2, 2, 2, 2], "target": 2}, 0),
+         case("Interior duplicates", {"nums": [-3, 0, 0, 0, 8], "target": 0}, 1, True),
+         case("Missing interior value", {"nums": [1, 3, 5], "target": 4}, -1, True),
+         case("After the end", {"nums": [1, 2], "target": 3}, -1, True),
+         case("Empty list", {"nums": [], "target": 0}, -1, True),
+         case("Last value", {"nums": [1, 2, 3], "target": 3}, 2, True)],
+        "Search for the first element greater than or equal to the target instead of returning immediately on equality. Check that the resulting boundary actually contains the target. Time O(log n), space O(1).",
+        ["Finding a match does not prove that no earlier match exists.", "On equality, keep searching the left half.",
+         "Maintain a half-open [low, high) range, move high to middle for values >= target, then validate low."], 16,
+    ),
+    problem(
+        "overlapping-matches", "The scanner skips overlapping alerts",
+        "A text scanner jumps past the whole matched pattern. That loses valid matches that begin inside the previous match.",
+        "logic", "medium", ["strings", "search", "overlap"],
+        ["Return every zero-based starting index where input.needle occurs in input.text, including overlapping occurrences.",
+         "Text and needle are ASCII strings of at most 1,000 characters. Return [] for an empty needle or no matches."],
+        {"javascript": '''
+            function solve(data) {
+              if (!data.needle.length) return [];
+              const result = [];
+              let start = 0, index;
+              while ((index = data.text.indexOf(data.needle, start)) !== -1) {
+                result.push(index);
+                start = index + data.needle.length;
+              }
+              return result;
+            }
+            module.exports = { solve };
+        '''},
+        {"javascript": '''
+            function solve(data) {
+              if (!data.needle.length) return [];
+              const result = [];
+              let start = 0, index;
+              while ((index = data.text.indexOf(data.needle, start)) !== -1) {
+                result.push(index);
+                start = index + 1;
+              }
+              return result;
+            }
+            module.exports = { solve };
+        '''},
+        [case("Separate matches", {"text": "abxxab", "needle": "ab"}, [0, 4]),
+         case("Overlapping pattern", {"text": "banana", "needle": "ana"}, [1, 3]),
+         case("Repeated character", {"text": "aaaa", "needle": "aa"}, [0, 1, 2], True),
+         case("Empty needle", {"text": "abc", "needle": ""}, [], True),
+         case("Longer needle", {"text": "a", "needle": "aa"}, [], True),
+         case("One-character pattern", {"text": "aba", "needle": "a"}, [0, 2], True)],
+        "After each match, resume one position after its start. This guarantees progress while allowing the next occurrence to overlap. Worst-case comparison work O(text length × needle length), output space O(matches).",
+        ["Can another occurrence start before the current one ends?", "The next search position needs to advance, but not by the entire pattern length.",
+         "Set start = index + 1 after recording a match."], 12,
+    ),
+])
+
+CATALOG.extend([
+    problem(
+        "palindrome-normalization", "Punctuation spoils the mirror check",
+        "A text puzzle ignores spaces but leaves punctuation in the comparison. Messages that read the same forward and backward are incorrectly rejected.",
+        "logic", "easy", ["strings", "normalization", "two-pointers"],
+        ["Return whether input.text is a palindrome after keeping only ASCII letters and digits and ignoring letter case.",
+         "Input contains at most 1,000 ASCII characters. Empty normalized text counts as a palindrome."],
+        {"python": '''
+            def solve(data):
+                text = data["text"].replace(" ", "").lower()
+                return text == text[::-1]
+        '''},
+        {"python": '''
+            def solve(data):
+                text = "".join(char.lower() for char in data["text"] if char.isalnum())
+                return text == text[::-1]
+        '''},
+        [case("Simple palindrome", {"text": "Race car"}, True),
+         case("Punctuated palindrome", {"text": "A man, a plan, a canal: Panama!"}, True),
+         case("Digits matter", {"text": "0P"}, False, True),
+         case("Only punctuation", {"text": "!?-"}, True, True),
+         case("Not a palindrome", {"text": "debug"}, False, True),
+         case("Mixed whitespace", {"text": "A\tb\na"}, True, True),
+         case("Empty text", {"text": ""}, True, True)],
+        "Apply the complete normalization rule before comparing: retain letters and digits, lowercase them, and compare with the reverse. The ASCII input constraint makes isalnum match the required alphabet. Time and space O(n).",
+        ["Spaces are only one kind of ignored character.", "Digits must remain, while punctuation and whitespace must disappear.",
+         "Filter with isalnum, lowercase the surviving characters, then compare the string with its reverse."], 10,
+    ),
+    problem(
+        "transpose-dimensions", "The rotated table still has its old shape",
+        "A Go matrix transpose allocates the original dimensions. Square examples hide the issue; rectangular tables panic or produce the wrong shape.",
+        "logic", "easy", ["matrices", "dimensions", "go"],
+        ["Input.matrix is a rectangular list of integer rows with at most 30 rows and 30 columns; values have magnitude at most 1,000,000.",
+         "Return its transpose, whose rows are the input columns. Zero input rows or zero columns returns []."],
+        {"go": '''
+            package main
+            func Solve(data map[string]interface{}) interface{} {
+                matrix := data["matrix"].([]interface{})
+                if len(matrix) == 0 { return [][]int{} }
+                rows, cols := len(matrix), len(matrix[0].([]interface{}))
+                result := make([][]int, rows)
+                for r := 0; r < rows; r++ {
+                    result[r] = make([]int, cols)
+                    for c := 0; c < cols; c++ { result[r][c] = int(matrix[c].([]interface{})[r].(float64)) }
+                }
+                return result
+            }
+        '''},
+        {"go": '''
+            package main
+            func Solve(data map[string]interface{}) interface{} {
+                matrix := data["matrix"].([]interface{})
+                if len(matrix) == 0 { return [][]int{} }
+                rows, cols := len(matrix), len(matrix[0].([]interface{}))
+                result := make([][]int, cols)
+                for c := 0; c < cols; c++ {
+                    result[c] = make([]int, rows)
+                    for r := 0; r < rows; r++ { result[c][r] = int(matrix[r].([]interface{})[c].(float64)) }
+                }
+                return result
+            }
+        '''},
+        [case("Square table", {"matrix": [[1, 2], [3, 4]]}, [[1, 3], [2, 4]]),
+         case("Wide table", {"matrix": [[1, 2, 3], [4, 5, 6]]}, [[1, 4], [2, 5], [3, 6]]),
+         case("Tall table", {"matrix": [[1], [2], [-3]]}, [[1, 2, -3]], True),
+         case("One row", {"matrix": [[0, 7]]}, [[0], [7]], True),
+         case("No rows", {"matrix": []}, [], True),
+         case("No columns", {"matrix": [[], []]}, [], True)],
+        "Swap the dimensions as well as the indices: allocate one output row per input column, each with one cell per input row. Time O(rows × columns), output space of the same order.",
+        ["What shape should a two-by-three matrix have after transposition?", "Both allocation and loop bounds must follow the output shape.",
+         "Allocate cols rows of length rows and assign result[c][r] = matrix[r][c]."], 12,
+    ),
+    problem(
+        "meeting-greedy-order", "The longest meeting blocks the whole day",
+        "A scheduling helper chooses meetings by start time. An early, long meeting can crowd out several shorter compatible meetings.",
+        "logic", "medium", ["greedy", "scheduling", "sorting"],
+        ["Input.meetings lists [start, end] integer intervals with start < end and endpoint magnitude at most 1,000,000.",
+         "Return the maximum number of meetings one person can attend. Meetings occupy [start, end), so touching meetings are compatible.",
+         "At most 100 meetings; repeated intervals represent separate choices but cannot overlap in the selected schedule."],
+        {"java": '''
+            import com.google.gson.*;
+            import java.util.*;
+            public class Solution {
+                public static JsonElement solve(JsonObject data) {
+                    List<int[]> meetings = new ArrayList<>();
+                    for (JsonElement raw : data.getAsJsonArray("meetings")) {
+                        JsonArray pair = raw.getAsJsonArray(); meetings.add(new int[]{pair.get(0).getAsInt(), pair.get(1).getAsInt()});
+                    }
+                    meetings.sort(Comparator.comparingInt(pair -> pair[0]));
+                    int count = 0, end = Integer.MIN_VALUE;
+                    for (int[] pair : meetings) if (pair[0] >= end) { count++; end = pair[1]; }
+                    return new JsonPrimitive(count);
+                }
+            }
+        '''},
+        {"java": '''
+            import com.google.gson.*;
+            import java.util.*;
+            public class Solution {
+                public static JsonElement solve(JsonObject data) {
+                    List<int[]> meetings = new ArrayList<>();
+                    for (JsonElement raw : data.getAsJsonArray("meetings")) {
+                        JsonArray pair = raw.getAsJsonArray(); meetings.add(new int[]{pair.get(0).getAsInt(), pair.get(1).getAsInt()});
+                    }
+                    meetings.sort(Comparator.comparingInt(pair -> pair[1]));
+                    int count = 0, end = Integer.MIN_VALUE;
+                    for (int[] pair : meetings) if (pair[0] >= end) { count++; end = pair[1]; }
+                    return new JsonPrimitive(count);
+                }
+            }
+        '''},
+        [case("Compatible meetings", {"meetings": [[1, 2], [2, 3]]}, 2),
+         case("Long early meeting", {"meetings": [[0, 10], [1, 2], [2, 3], [3, 4]]}, 3),
+         case("Input is unsorted", {"meetings": [[5, 8], [0, 2], [2, 5]]}, 3, True),
+         case("Negative times", {"meetings": [[-5, -2], [-2, 0], [-4, 1]]}, 2, True),
+         case("Repeated interval", {"meetings": [[1, 4], [1, 4], [4, 5]]}, 2, True),
+         case("Empty schedule", {"meetings": []}, 0, True)],
+        "Select compatible meetings in increasing finish-time order. Finishing as early as possible leaves at least as much room for every later choice. Time O(n log n), space O(n).",
+        ["Does starting earlier necessarily free the room earlier?", "The next choice benefits from the earliest possible finishing time.",
+         "Sort by end time and accept a meeting when its start is at least the previous selected end."], 16,
+    ),
+    problem(
+        "knapsack-item-reuse", "The packing list invents extra items",
+        "A space-saving knapsack implementation updates capacities in ascending order. That lets one physical item be counted several times during the same iteration.",
+        "logic", "hard", ["dynamic-programming", "knapsack", "iteration-order"],
+        ["Input.items lists {weight, value} integers; each listed item may be chosen at most once, including separately listed identical items.",
+         "Return the maximum total value with total weight at most input.capacity. Choosing no items is allowed.",
+         "Capacity is 0 through 1,000; at most 40 items; weights are 1 through 1,000 and values 0 through 1,000. Use O(items × capacity) time and O(capacity) working space."],
+        {"python": '''
+            def solve(data):
+                capacity = data["capacity"]
+                best = [0] * (capacity + 1)
+                for item in data["items"]:
+                    for space in range(item["weight"], capacity + 1):
+                        best[space] = max(best[space], best[space - item["weight"]] + item["value"])
+                return best[capacity]
+        '''},
+        {"python": '''
+            def solve(data):
+                capacity = data["capacity"]
+                best = [0] * (capacity + 1)
+                for item in data["items"]:
+                    for space in range(capacity, item["weight"] - 1, -1):
+                        best[space] = max(best[space], best[space - item["weight"]] + item["value"])
+                return best[capacity]
+        '''},
+        [case("One item fits once", {"capacity": 3, "items": [{"weight": 3, "value": 4}]}, 4),
+         case("Cannot clone an item", {"capacity": 6, "items": [{"weight": 3, "value": 4}]}, 4),
+         case("Two physical copies", {"capacity": 6, "items": [{"weight": 3, "value": 4}, {"weight": 3, "value": 4}]}, 8, True),
+         case("Best combination", {"capacity": 7, "items": [{"weight": 3, "value": 4}, {"weight": 4, "value": 6}, {"weight": 5, "value": 7}]}, 10, True),
+         case("Nothing fits", {"capacity": 2, "items": [{"weight": 3, "value": 9}]}, 0, True),
+         case("Zero capacity", {"capacity": 0, "items": [{"weight": 1, "value": 3}]}, 0, True),
+         case("No items", {"capacity": 5, "items": []}, 0, True)],
+        "Update capacities in descending order. The smaller-capacity state then still describes choices before the current item, so the transition can add that item only once. Time O(items × capacity), working space O(capacity).",
+        ["Can best[space - weight] already include the current item?", "Ascending updates reuse values written earlier in the same item iteration.",
+         "Iterate space from capacity down through the item's weight."], 24,
+    ),
+    problem(
+        "union-size-accounting", "A repeated link doubles the cluster",
+        "A C++ connectivity tracker adds component sizes even when the two nodes are already connected. Duplicate and cyclic links inflate the reported cluster sizes.",
+        "logic", "medium", ["union-find", "graphs", "invariants"],
+        ["Input.n is 0 through 100; nodes are 0 through n-1. Input.links contains at most 500 undirected pairs of valid nodes.",
+         "Return an n-element array with each node's connected-component size. Repeated links and self links must not add nodes.",
+         "An empty graph returns []."],
+        {"cpp": '''
+            #include <nlohmann/json.hpp>
+            #include <vector>
+            #include <numeric>
+            #include <functional>
+            using nlohmann::json;
+            json solve(const json& data) {
+                int n = data.at("n"); std::vector<int> parent(n), size(n, 1);
+                std::iota(parent.begin(), parent.end(), 0);
+                std::function<int(int)> root = [&](int x) { return parent[x] == x ? x : parent[x] = root(parent[x]); };
+                for (const auto& link : data.at("links")) {
+                    int a = root(link.at(0).get<int>()), b = root(link.at(1).get<int>());
+                    if (size[a] < size[b]) std::swap(a, b);
+                    parent[b] = a; size[a] += size[b];
+                }
+                json result = json::array(); for (int i = 0; i < n; i++) result.push_back(size[root(i)]);
+                return result;
+            }
+        '''},
+        {"cpp": '''
+            #include <nlohmann/json.hpp>
+            #include <vector>
+            #include <numeric>
+            #include <functional>
+            using nlohmann::json;
+            json solve(const json& data) {
+                int n = data.at("n"); std::vector<int> parent(n), size(n, 1);
+                std::iota(parent.begin(), parent.end(), 0);
+                std::function<int(int)> root = [&](int x) { return parent[x] == x ? x : parent[x] = root(parent[x]); };
+                for (const auto& link : data.at("links")) {
+                    int a = root(link.at(0).get<int>()), b = root(link.at(1).get<int>());
+                    if (a == b) continue;
+                    if (size[a] < size[b]) std::swap(a, b);
+                    parent[b] = a; size[a] += size[b];
+                }
+                json result = json::array(); for (int i = 0; i < n; i++) result.push_back(size[root(i)]);
+                return result;
+            }
+        '''},
+        [case("One link", {"n": 3, "links": [[0, 1]]}, [2, 2, 1]),
+         case("Repeated link", {"n": 2, "links": [[0, 1], [0, 1]]}, [2, 2]),
+         case("Self link", {"n": 2, "links": [[0, 0]]}, [1, 1], True),
+         case("Cycle", {"n": 4, "links": [[0, 1], [1, 2], [2, 0]]}, [3, 3, 3, 1], True),
+         case("Merge two clusters", {"n": 5, "links": [[0, 1], [2, 3], [1, 3]]}, [4, 4, 4, 4, 1], True),
+         case("Empty graph", {"n": 0, "links": []}, [], True)],
+        "Only merge distinct roots. An edge inside an existing component changes connectivity neither for a self link nor for a cycle. Union by size and path compression give near-linear O((V + E) α(V)) time and O(V) working space; α grows extremely slowly.",
+        ["Does every edge connect two different components?", "Comparing original endpoints misses distinct nodes that already share a root.",
+         "Find both roots and skip the union entirely when they are equal."], 18,
+    ),
+    problem(
+        "boolean-precedence", "One region bypasses the age check",
+        "A regional eligibility rule combines AND and OR without grouping. Applicants from the second supported region bypass the minimum-age requirement.",
+        "logic", "easy", ["booleans", "precedence", "validation"],
+        ["Return true only when input.age >= 18 and input.region is exactly 'north' or 'south'.",
+         "Age is an integer from 0 through 120; region is an ASCII string. Other regions are ineligible."],
+        {"javascript": '''
+            function solve(data) {
+              return data.age >= 18 && data.region === 'north' || data.region === 'south';
+            }
+            module.exports = { solve };
+        '''},
+        {"javascript": '''
+            function solve(data) {
+              return data.age >= 18 && (data.region === 'north' || data.region === 'south');
+            }
+            module.exports = { solve };
+        '''},
+        [case("Eligible north applicant", {"age": 20, "region": "north"}, True),
+         case("Underage south applicant", {"age": 17, "region": "south"}, False),
+         case("Exact age threshold", {"age": 18, "region": "south"}, True, True),
+         case("Underage north applicant", {"age": 0, "region": "north"}, False, True),
+         case("Unsupported region", {"age": 40, "region": "east"}, False, True),
+         case("Case-sensitive region", {"age": 18, "region": "South"}, False, True)],
+        "AND binds more tightly than OR. Group the region alternatives so the age predicate applies to both of them. Time and space O(1).",
+        ["Write down how the current expression groups without parentheses.", "The south comparison is a complete alternative to the age check.",
+         "Require age >= 18 AND (region is north OR region is south)."], 8,
+    ),
+    problem(
+        "edit-distance-diagonal", "The spell checker overwrites its memory",
+        "A one-row edit-distance algorithm saves its diagonal after overwriting the cell. Later comparisons use the current row where they need the previous row.",
+        "logic", "hard", ["dynamic-programming", "strings", "state"],
+        ["Return the Levenshtein distance between input.source and input.target: minimum insertions, deletions, and substitutions, each costing one.",
+         "Both strings contain lowercase ASCII letters and have at most 200 characters. Matching characters cost zero.",
+         "Use O(source length × target length) time and O(target length) working space."],
+        {"python": '''
+            def solve(data):
+                source, target = data["source"], data["target"]
+                row = list(range(len(target) + 1))
+                for i, left in enumerate(source, 1):
+                    diagonal, row[0] = row[0], i
+                    for j, right in enumerate(target, 1):
+                        row[j] = diagonal if left == right else 1 + min(diagonal, row[j], row[j - 1])
+                        diagonal = row[j]
+                return row[-1]
+        '''},
+        {"python": '''
+            def solve(data):
+                source, target = data["source"], data["target"]
+                row = list(range(len(target) + 1))
+                for i, left in enumerate(source, 1):
+                    diagonal, row[0] = row[0], i
+                    for j, right in enumerate(target, 1):
+                        above = row[j]
+                        row[j] = diagonal if left == right else 1 + min(diagonal, above, row[j - 1])
+                        diagonal = above
+                return row[-1]
+        '''},
+        [case("One substitution", {"source": "a", "target": "b"}, 1),
+         case("Identical word", {"source": "ab", "target": "ab"}, 0),
+         case("Mixed edits", {"source": "kitten", "target": "sitting"}, 3, True),
+         case("Insert everything", {"source": "", "target": "abc"}, 3, True),
+         case("Delete everything", {"source": "abc", "target": ""}, 3, True),
+         case("Repeated letters", {"source": "aaaa", "target": "aa"}, 2, True),
+         case("Both empty", {"source": "", "target": ""}, 0, True)],
+        "Save the previous-row value before replacing row[j]. That saved value becomes the next cell's diagonal; row[j - 1] already belongs to the current row. Time O(mn), working space O(n).",
+        ["Which row should each of the three neighboring costs come from?", "The next diagonal is the old value above this cell.",
+         "Save above = row[j], compute the new cell, then set diagonal = above."], 25,
+    ),
+])
+
+
+# Problems 71–85: edge and corner cases.
+CATALOG.extend([
+    problem(
+        "null-only-cleanup", "The cleanup deletes valid zeroes",
+        "A JSON cleanup step removes all falsy values while trying to remove nulls. Valid zeroes, false flags, and empty strings disappear from the exported document.",
+        "edge", "medium", ["json", "null", "recursion"],
+        ["Recursively remove object fields and array elements whose value is exactly null from input.value.",
+         "Preserve zero, false, empty strings, empty objects, empty arrays, and the order of remaining array elements. Root null stays null.",
+         "Input.value is any JSON value, at most 10 levels deep and 1,000 nodes. Object keys are arbitrary strings; numeric values are finite."],
+        {"javascript": '''
+            function solve(data) {
+              function clean(value) {
+                if (Array.isArray(value)) return value.filter(Boolean).map(clean);
+                if (value !== null && typeof value === 'object')
+                  return Object.fromEntries(Object.entries(value).filter(([, child]) => Boolean(child)).map(([key, child]) => [key, clean(child)]));
+                return value;
+              }
+              return clean(data.value);
+            }
+            module.exports = { solve };
+        '''},
+        {"javascript": '''
+            function solve(data) {
+              function clean(value) {
+                if (Array.isArray(value)) return value.filter(child => child !== null).map(clean);
+                if (value !== null && typeof value === 'object')
+                  return Object.fromEntries(Object.entries(value).filter(([, child]) => child !== null).map(([key, child]) => [key, clean(child)]));
+                return value;
+              }
+              return clean(data.value);
+            }
+            module.exports = { solve };
+        '''},
+        [case("Remove a null field", {"value": {"name": "a", "note": None}}, {"name": "a"}),
+         case("Keep falsy values", {"value": [0, False, "", None, 1]}, [0, False, "", 1]),
+         case("Nested values", {"value": {"a": [None, {"x": None, "y": 0}], "b": False}}, {"a": [{"y": 0}], "b": False}, True),
+         case("Empty containers survive", {"value": [[], {}, [None], {"x": None}]}, [[], {}, [], {}], True),
+         case("Root null", {"value": None}, None, True),
+         case("Arbitrary keys", {"value": {"__proto__": {"active": False}, "constructor": 0, "": ""}}, {"__proto__": {"active": False}, "constructor": 0, "": ""}, True),
+         case("Scalar root", {"value": False}, False, True)],
+        "Filter by exact null equality rather than truthiness at every level. Rebuild objects with Object.fromEntries so arbitrary keys are ordinary own properties. Time and output space O(nodes), with recursion bounded by input depth.",
+        ["Which values does Boolean reject besides null?", "Apply the same precise predicate to object fields and array elements.",
+         "Replace truthiness filters with child !== null and retain the recursive reconstruction."], 16,
+    ),
+    problem(
+        "numeric-version-order", "Version ten looks older than version two",
+        "A release checker compares dotted versions as strings. Numeric segments and omitted trailing zeroes make that ordering disagree with the version contract.",
+        "edge", "medium", ["versions", "parsing", "comparison"],
+        ["Input.left and input.right are dotted version strings with one through six ASCII digit segments; each segment's value is 0 through 999.",
+         "Compare segments numerically from left to right, treating missing trailing segments as zero. Leading zeroes do not matter.",
+         "Return -1 if left is older, 0 if equal, or 1 if newer. There are no prerelease suffixes."],
+        {"python": '''
+            def solve(data):
+                left, right = data["left"], data["right"]
+                return (left > right) - (left < right)
+        '''},
+        {"python": '''
+            from itertools import zip_longest
+            def solve(data):
+                left = map(int, data["left"].split("."))
+                right = map(int, data["right"].split("."))
+                for a, b in zip_longest(left, right, fillvalue=0):
+                    if a != b:
+                        return (a > b) - (a < b)
+                return 0
+        '''},
+        [case("Different major versions", {"left": "2.0", "right": "1.9"}, 1),
+         case("Two-digit segment", {"left": "1.10", "right": "1.2"}, 1),
+         case("Implicit trailing zeros", {"left": "1", "right": "1.0.0"}, 0, True),
+         case("Leading zeros", {"left": "01.002", "right": "1.2"}, 0, True),
+         case("Later nonzero segment", {"left": "1.0.0", "right": "1.0.1"}, -1, True),
+         case("All zero versions", {"left": "0.0", "right": "000"}, 0, True),
+         case("Major version wins", {"left": "9.999", "right": "10.0"}, -1, True)],
+        "Parse individual segments as integers and compare them with zero padding. Comparing complete strings or treating a version as a decimal number loses the segment ordering rule. Time and space O(total input characters).",
+        ["Are segments ordered as text or as integers?", "An absent trailing segment has the same meaning as a zero segment.",
+         "Zip the parsed segments with zero fill and return at the first numeric difference."], 14,
+    ),
+    problem(
+        "intersection-initial-state", "The common labels vanish",
+        "A Java label matcher starts its running intersection with an empty set. Intersecting any later group with that set can never recover common labels.",
+        "edge", "easy", ["sets", "initialization", "intersection"],
+        ["Input.groups is a list of lists of lowercase ASCII label strings, with at most 100 groups and 100 labels per group.",
+         "Return the unique labels present in every group, sorted alphabetically. Duplicate labels inside one group count once.",
+         "If there are no groups, return []. An empty group makes the intersection empty."],
+        {"java": '''
+            import com.google.gson.*;
+            import java.util.*;
+            public class Solution {
+                public static JsonElement solve(JsonObject data) {
+                    Set<String> common = new TreeSet<>();
+                    for (JsonElement raw : data.getAsJsonArray("groups")) {
+                        Set<String> group = new HashSet<>();
+                        for (JsonElement label : raw.getAsJsonArray()) group.add(label.getAsString());
+                        common.retainAll(group);
+                    }
+                    return new Gson().toJsonTree(common);
+                }
+            }
+        '''},
+        {"java": '''
+            import com.google.gson.*;
+            import java.util.*;
+            public class Solution {
+                public static JsonElement solve(JsonObject data) {
+                    Set<String> common = new TreeSet<>(); boolean first = true;
+                    for (JsonElement raw : data.getAsJsonArray("groups")) {
+                        Set<String> group = new HashSet<>();
+                        for (JsonElement label : raw.getAsJsonArray()) group.add(label.getAsString());
+                        if (first) { common.addAll(group); first = false; }
+                        else common.retainAll(group);
+                    }
+                    return new Gson().toJsonTree(common);
+                }
+            }
+        '''},
+        [case("Disjoint groups", {"groups": [["a"], ["b"]]}, []),
+         case("A shared label", {"groups": [["a", "b"], ["b", "c"]]}, ["b"]),
+         case("Single group", {"groups": [["z", "a", "a"]]}, ["a", "z"], True),
+         case("Empty first group", {"groups": [[], ["a"]]}, [], True),
+         case("Empty later group", {"groups": [["a"], []]}, [], True),
+         case("No groups", {"groups": []}, [], True),
+         case("Several shared labels", {"groups": [["b", "a", "c"], ["b", "a"], ["a", "b", "d"]]}, ["a", "b"], True)],
+        "Initialize from the first actual group, even if that group is empty. Track whether a group was processed separately from whether the current intersection is empty. Time O(total labels × log distinct labels) with a sorted set, space O(distinct labels).",
+        ["What happens when any set is intersected with the empty set?", "An empty first group is different from having no group yet.",
+         "Copy the first group into the running set; only intersect subsequent groups."], 12,
+    ),
+    problem(
+        "chunk-remainder", "The final partial batch disappears",
+        "A Go batcher emits only full chunks. When the item count is not a multiple of the batch size, the last few items never reach the worker.",
+        "edge", "easy", ["batching", "slices", "remainders"],
+        ["Split input.items into consecutive chunks of at most input.size items, preserving order and keeping the final partial chunk.",
+         "Return [] for size <= 0 or no items. Size has magnitude at most 1,000; items contains at most 100 integers of magnitude at most 1,000,000."],
+        {"go": '''
+            package main
+            func Solve(data map[string]interface{}) interface{} {
+                items, size := data["items"].([]interface{}), int(data["size"].(float64))
+                result := [][]int{}
+                if size <= 0 { return result }
+                for start := 0; start+size <= len(items); start += size {
+                    chunk := []int{}
+                    for _, raw := range items[start:start+size] { chunk = append(chunk, int(raw.(float64))) }
+                    result = append(result, chunk)
+                }
+                return result
+            }
+        '''},
+        {"go": '''
+            package main
+            func Solve(data map[string]interface{}) interface{} {
+                items, size := data["items"].([]interface{}), int(data["size"].(float64))
+                result := [][]int{}
+                if size <= 0 { return result }
+                for start := 0; start < len(items); start += size {
+                    end := start + size
+                    if end > len(items) { end = len(items) }
+                    chunk := []int{}
+                    for _, raw := range items[start:end] { chunk = append(chunk, int(raw.(float64))) }
+                    result = append(result, chunk)
+                }
+                return result
+            }
+        '''},
+        [case("Full chunks", {"items": [1, 2, 3, 4], "size": 2}, [[1, 2], [3, 4]]),
+         case("Partial final chunk", {"items": [1, 2, 3], "size": 2}, [[1, 2], [3]]),
+         case("Less than one full chunk", {"items": [0, -1], "size": 9}, [[0, -1]], True),
+         case("Individual items", {"items": [2, 2], "size": 1}, [[2], [2]], True),
+         case("Empty input", {"items": [], "size": 3}, [], True),
+         case("Zero size", {"items": [1], "size": 0}, [], True),
+         case("Negative size", {"items": [1], "size": -2}, [], True)],
+        "Continue while the next chunk has any starting item, then clamp its end to the collection length. Validate the size before using it as the loop increment. Time and output space O(n).",
+        ["Does a chunk need to be full to be valid?", "The loop condition should test whether any items remain.",
+         "Loop while start < len(items) and use min(start + size, len(items)) as the slice end."], 10,
+    ),
+    problem(
+        "radix-zero-sign", "Zero has no representation",
+        "A JavaScript radix formatter extracts digits only while the number is positive. It emits an empty string for zero and every negative number.",
+        "edge", "medium", ["number-bases", "zero", "signs"],
+        ["Convert input.number, an integer from -1,000,000,000 through 1,000,000,000, to base input.base (2 through 16).",
+         "Use lowercase digits 0–9 and a–f, a leading minus sign only for negative numbers, and no leading zeroes.",
+         "Zero must return '0'. Return a string."],
+        {"javascript": '''
+            function solve(data) {
+              const digits = '0123456789abcdef';
+              let number = data.number, result = '';
+              while (number > 0) {
+                result = digits[number % data.base] + result;
+                number = Math.floor(number / data.base);
+              }
+              return result;
+            }
+            module.exports = { solve };
+        '''},
+        {"javascript": '''
+            function solve(data) {
+              const digits = '0123456789abcdef';
+              let number = Math.abs(data.number), result = '';
+              do {
+                result = digits[number % data.base] + result;
+                number = Math.floor(number / data.base);
+              } while (number > 0);
+              return (data.number < 0 ? '-' : '') + result;
+            }
+            module.exports = { solve };
+        '''},
+        [case("Positive binary", {"number": 10, "base": 2}, "1010"),
+         case("Zero", {"number": 0, "base": 16}, "0"),
+         case("Negative hexadecimal", {"number": -255, "base": 16}, "-ff", True),
+         case("Base three", {"number": 10, "base": 3}, "101", True),
+         case("Negative one", {"number": -1, "base": 2}, "-1", True),
+         case("Large decimal", {"number": 1000000000, "base": 10}, "1000000000", True)],
+        "Extract at least one digit from the absolute magnitude, then prepend a minus sign if needed. Separating sign handling also keeps remainders valid digit indices. There are O(log_base(|number| + 1)) digits; repeated string prepending may take quadratic time in that small digit count.",
+        ["How many digits should zero produce?", "Use the magnitude for digit extraction and handle the sign separately.",
+         "Use a do/while loop on Math.abs(number), then prepend '-' only for an original negative value."], 14,
+    ),
+    problem(
+        "century-leap-day", "The calendar invents a leap day",
+        "A calendar validator assumes every year divisible by four is a leap year. Century years reveal the missing Gregorian exception.",
+        "edge", "medium", ["dates", "leap-years", "validation"],
+        ["Return whether input.year, input.month, and input.day form a valid date in the proleptic Gregorian calendar.",
+         "Year is 1 through 9999. Month and day are integers from -100 through 100; reject out-of-range values.",
+         "Leap years are divisible by 4, except years divisible by 100 unless also divisible by 400."],
+        {"python": '''
+            def solve(data):
+                year, month, day = data["year"], data["month"], data["day"]
+                lengths = [31, 29 if year % 4 == 0 else 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
+                return 1 <= month <= 12 and 1 <= day <= lengths[month - 1]
+        '''},
+        {"python": '''
+            def solve(data):
+                year, month, day = data["year"], data["month"], data["day"]
+                leap = year % 4 == 0 and (year % 100 != 0 or year % 400 == 0)
+                lengths = [31, 29 if leap else 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
+                return 1 <= month <= 12 and 1 <= day <= lengths[month - 1]
+        '''},
+        [case("Ordinary leap year", {"year": 2024, "month": 2, "day": 29}, True),
+         case("Century exception", {"year": 1900, "month": 2, "day": 29}, False),
+         case("Four-century exception", {"year": 2000, "month": 2, "day": 29}, True, True),
+         case("Ordinary February", {"year": 2023, "month": 2, "day": 29}, False, True),
+         case("Short month", {"year": 2026, "month": 4, "day": 31}, False, True),
+         case("Invalid month", {"year": 2026, "month": 0, "day": 1}, False, True),
+         case("Invalid day", {"year": 2026, "month": 12, "day": 0}, False, True),
+         case("Last date of year", {"year": 9999, "month": 12, "day": 31}, True, True)],
+        "Encode all three divisibility rules before choosing February's length. Validate the month before indexing the month-length table and include both day boundaries. Time and space O(1).",
+        ["Do 1900 and 2000 follow the same century rule?", "Divisibility by 400 restores the leap day removed by divisibility by 100.",
+         "Use year % 4 == 0 and (year % 100 != 0 or year % 400 == 0)."], 12,
+    ),
+    problem(
+        "closed-interval-touch", "A shared endpoint disappears",
+        "A range-intersection tool uses the test for open intervals even though its endpoints are included. Two ranges meeting at one point are reported as disjoint.",
+        "edge", "easy", ["intervals", "boundaries", "cpp"],
+        ["Input.a and input.b are closed integer intervals [start, end], with start <= end and endpoint magnitude at most 1,000,000.",
+         "Return their intersection as [start, end], or null if disjoint. A single shared endpoint is a valid one-point interval."],
+        {"cpp": '''
+            #include <nlohmann/json.hpp>
+            #include <algorithm>
+            using nlohmann::json;
+            json solve(const json& data) {
+                int left = std::max(data.at("a").at(0).get<int>(), data.at("b").at(0).get<int>());
+                int right = std::min(data.at("a").at(1).get<int>(), data.at("b").at(1).get<int>());
+                return left < right ? json::array({left, right}) : json(nullptr);
+            }
+        '''},
+        {"cpp": '''
+            #include <nlohmann/json.hpp>
+            #include <algorithm>
+            using nlohmann::json;
+            json solve(const json& data) {
+                int left = std::max(data.at("a").at(0).get<int>(), data.at("b").at(0).get<int>());
+                int right = std::min(data.at("a").at(1).get<int>(), data.at("b").at(1).get<int>());
+                return left <= right ? json::array({left, right}) : json(nullptr);
+            }
+        '''},
+        [case("Ordinary overlap", {"a": [1, 5], "b": [3, 7]}, [3, 5]),
+         case("Touching endpoints", {"a": [1, 3], "b": [3, 8]}, [3, 3]),
+         case("Disjoint ranges", {"a": [1, 2], "b": [3, 4]}, None, True),
+         case("One-point input", {"a": [0, 0], "b": [-2, 2]}, [0, 0], True),
+         case("Contained range", {"a": [-9, 9], "b": [-2, 4]}, [-2, 4], True),
+         case("Equal points", {"a": [-1, -1], "b": [-1, -1]}, [-1, -1], True)],
+        "Compute the larger start and smaller end, then accept equality as well as a positive width. Closed ranges contain their endpoints. Time and space O(1).",
+        ["Is the endpoint itself part of each range?", "An intersection can contain exactly one value.",
+         "Return the candidate interval when left <= right."], 8,
+    ),
+    problem(
+        "query-parameter-lists", "The URL loses half its filters",
+        "A query-string reader keeps only the last value for each key and drops blank fields. Repeated filters and explicit empty selections cannot survive a round trip.",
+        "edge", "medium", ["parsing", "urls", "duplicates"],
+        ["Input.query is an application/x-www-form-urlencoded query string without a leading '?', at most 1,000 characters.",
+         "Return an object mapping decoded keys to lists of all decoded values in arrival order. Keep blank values, bare keys as empty values, and blank keys.",
+         "Split fields at '&' and each field at its first '='; ignore empty fields. Decode percent escapes and '+' as a space. Percent escapes are valid and decode to ASCII."],
+        {"python": '''
+            from urllib.parse import parse_qsl
+            def solve(data):
+                result = {}
+                for key, value in parse_qsl(data["query"]):
+                    result[key] = [value]
+                return result
+        '''},
+        {"python": '''
+            from urllib.parse import parse_qsl
+            def solve(data):
+                result = {}
+                for key, value in parse_qsl(data["query"], keep_blank_values=True):
+                    result.setdefault(key, []).append(value)
+                return result
+        '''},
+        [case("One filter", {"query": "tag=python"}, {"tag": ["python"]}),
+         case("Repeated filter", {"query": "tag=python&tag=go"}, {"tag": ["python", "go"]}),
+         case("Blank and bare values", {"query": "q=&debug&tag=x"}, {"q": [""], "debug": [""], "tag": ["x"]}, True),
+         case("Escaped separators", {"query": "q=a%26b%3Dc&plus=%2B+x"}, {"q": ["a&b=c"], "plus": ["+ x"]}, True),
+         case("Empty fields and keys", {"query": "&=one&&=two&"}, {"": ["one", "two"]}, True),
+         case("First equals only", {"query": "token=a=b=c"}, {"token": ["a=b=c"]}, True),
+         case("Empty query", {"query": ""}, {}, True)],
+        "Ask the form parser to keep blank values and accumulate a list per decoded key. Split before decoding so escaped separators remain part of their original value. Time and output space O(query length).",
+        ["Can one key legitimately appear more than once?", "The parser's default treatment of blank values loses another kind of field.",
+         "Use parse_qsl(..., keep_blank_values=True) and append each value with setdefault(key, [])."], 16,
+    ),
+])
+
+CATALOG.extend([
+    problem(
+        "strict-decimal-cents", "A decimal amount loses a cent",
+        "A Java import converts decimal strings through binary floating point and truncates the result. Some valid amounts lose a cent, while unsupported number formats are accepted.",
+        "edge", "medium", ["decimals", "precision", "parsing"],
+        ["For each string in input.amounts, return its exact integer cents or null if invalid.",
+         "Valid syntax is an optional minus sign, 1–9 ASCII digits, and optionally a dot followed by 1–2 ASCII digits. Leading zeroes and negative zero are allowed.",
+         "Reject whitespace, a plus sign, exponents, missing integer digits, and extra fractional digits. At most 100 strings of at most 30 characters; use a result type large enough for 99,999,999,999 cents."],
+        {"java": '''
+            import com.google.gson.*;
+            public class Solution {
+                public static JsonElement solve(JsonObject data) {
+                    JsonArray result = new JsonArray();
+                    for (JsonElement raw : data.getAsJsonArray("amounts")) {
+                        try { result.add((long)(Double.parseDouble(raw.getAsString()) * 100)); }
+                        catch (NumberFormatException error) { result.add(JsonNull.INSTANCE); }
+                    }
+                    return result;
+                }
+            }
+        '''},
+        {"java": '''
+            import com.google.gson.*;
+            import java.math.BigDecimal;
+            public class Solution {
+                public static JsonElement solve(JsonObject data) {
+                    JsonArray result = new JsonArray();
+                    for (JsonElement raw : data.getAsJsonArray("amounts")) {
+                        String text = raw.getAsString();
+                        if (!text.matches("-?[0-9]{1,9}([.][0-9]{1,2})?")) result.add(JsonNull.INSTANCE);
+                        else result.add(new BigDecimal(text).movePointRight(2).longValueExact());
+                    }
+                    return result;
+                }
+            }
+        '''},
+        [case("Whole and fractional units", {"amounts": ["12", "1.50", "0.5"]}, [1200, 150, 50]),
+         case("Binary rounding trap", {"amounts": ["0.29", "-0.29"]}, [29, -29]),
+         case("Unsupported syntax", {"amounts": ["1e2", "+1", " 2", "2 ", ".5", "1.", "1.234"]}, [None] * 7, True),
+         case("Exact large amount", {"amounts": ["999999999.99", "-999999999.99"]}, [99999999999, -99999999999], True),
+         case("Leading and signed zero", {"amounts": ["0001.20", "-0.00", "0"]}, [120, 0, 0], True),
+         case("Invalid fields", {"amounts": ["", "NaN", "Infinity", "1000000000", "１２"]}, [None] * 5, True),
+         case("Empty import", {"amounts": []}, [], True)],
+        "Validate the exact accepted grammar, then parse the original decimal text with BigDecimal and shift by two decimal places. Converting through double first cannot recover the lost decimal precision. Time O(total characters), output space O(amounts).",
+        ["Is every two-decimal value represented exactly by a double?", "Rounding a double alone would still accept forbidden syntax.",
+         "Validate the grammar, construct BigDecimal from the string, and use movePointRight(2).longValueExact()."], 18,
+    ),
+    problem(
+        "median-even-pair", "The median drops its fractional half",
+        "A C++ median calculation correctly finds the middle values but averages them with integer division. Even-sized samples can lose a half unit.",
+        "edge", "medium", ["median", "integer-division", "sorting"],
+        ["Return the median of input.values after numeric sorting. For an even count, return the arithmetic mean of the two middle values.",
+         "An empty list returns null. There are at most 1,000 integers, each with magnitude at most 1,000,000. Preserve fractional and negative medians."],
+        {"cpp": '''
+            #include <nlohmann/json.hpp>
+            #include <vector>
+            #include <algorithm>
+            using nlohmann::json;
+            json solve(const json& data) {
+                auto values = data.at("values").get<std::vector<int>>();
+                if (values.empty()) return nullptr;
+                std::sort(values.begin(), values.end()); int middle = values.size() / 2;
+                if (values.size() % 2) return values[middle];
+                return (values[middle - 1] + values[middle]) / 2;
+            }
+        '''},
+        {"cpp": '''
+            #include <nlohmann/json.hpp>
+            #include <vector>
+            #include <algorithm>
+            using nlohmann::json;
+            json solve(const json& data) {
+                auto values = data.at("values").get<std::vector<int>>();
+                if (values.empty()) return nullptr;
+                std::sort(values.begin(), values.end()); int middle = values.size() / 2;
+                if (values.size() % 2) return values[middle];
+                return (values[middle - 1] + values[middle]) / 2.0;
+            }
+        '''},
+        [case("Odd sample", {"values": [9, 1, 3]}, 3), case("Fractional median", {"values": [1, 2]}, 1.5),
+         case("Negative median", {"values": [-4, -1]}, -2.5, True),
+         case("Middle values only", {"values": [100, 2, 3, -100]}, 2.5, True),
+         case("Repeated values", {"values": [5, 5, 5, 5]}, 5, True),
+         case("Empty sample", {"values": []}, None, True)],
+        "Use floating-point division for the even-count average. The given input bounds keep the integer addition safe; changing only the denominator preserves the half-unit result. Time O(n log n), space O(n) for the copied values.",
+        ["What type is the division when both operands are integers?", "Converting the result after division is too late.",
+         "Divide the middle-value sum by 2.0."], 12,
+    ),
+    problem(
+        "descending-range-step", "The countdown never starts",
+        "A range builder rejects start values above the stop before considering the step. That check discards every valid descending range.",
+        "edge", "easy", ["ranges", "negative-step", "boundaries"],
+        ["Return the integers starting at input.start and repeatedly adding input.step, excluding input.stop and stopping before crossing it.",
+         "A positive step requires start < stop; a negative step requires start > stop. A zero step returns [].",
+         "Start and stop are integers from -100 through 100; step is from -20 through 20."],
+        {"python": '''
+            def solve(data):
+                if data["step"] == 0 or data["start"] >= data["stop"]:
+                    return []
+                return list(range(data["start"], data["stop"], data["step"]))
+        '''},
+        {"python": '''
+            def solve(data):
+                if data["step"] == 0:
+                    return []
+                return list(range(data["start"], data["stop"], data["step"]))
+        '''},
+        [case("Count upward", {"start": 1, "stop": 5, "step": 2}, [1, 3]),
+         case("Count downward", {"start": 5, "stop": 0, "step": -2}, [5, 3, 1]),
+         case("Wrong direction", {"start": 1, "stop": 5, "step": -1}, [], True),
+         case("Equal endpoints", {"start": 3, "stop": 3, "step": -1}, [], True),
+         case("Zero step", {"start": 0, "stop": 5, "step": 0}, [], True),
+         case("Across zero", {"start": 2, "stop": -3, "step": -1}, [2, 1, 0, -1, -2], True),
+         case("Step passes endpoint", {"start": 1, "stop": 0, "step": -20}, [1], True)],
+        "The valid direction depends on the step's sign. Python's range already handles both directions and exclusive endpoints, so only the zero-step case needs an explicit guard. Time and output space O(number of emitted values).",
+        ["Which direction does a negative step move?", "The start-versus-stop check assumes an ascending sequence.",
+         "Keep the zero-step guard and let range handle direction and stopping."], 10,
+    ),
+    problem(
+        "anagram-multiplicity", "The anagram key forgets repeated letters",
+        "A Java word grouper uses a set of letters as its signature. Words with the same distinct letters but different letter counts are merged into one group.",
+        "edge", "medium", ["anagrams", "multiplicity", "hash-map"],
+        ["Group input.words by anagram equivalence: every letter must occur the same number of times.",
+         "Preserve group order by first appearance and word order inside each group. Keep duplicate and empty words.",
+         "There are at most 100 lowercase ASCII words, each at most 100 characters."],
+        {"java": '''
+            import com.google.gson.*;
+            import java.util.*;
+            public class Solution {
+                public static JsonElement solve(JsonObject data) {
+                    Map<String, JsonArray> groups = new LinkedHashMap<>();
+                    for (JsonElement raw : data.getAsJsonArray("words")) {
+                        String word = raw.getAsString(); Set<Character> letters = new TreeSet<>();
+                        for (char letter : word.toCharArray()) letters.add(letter);
+                        String key = letters.toString();
+                        groups.computeIfAbsent(key, ignored -> new JsonArray()).add(word);
+                    }
+                    JsonArray result = new JsonArray(); for (JsonArray group : groups.values()) result.add(group);
+                    return result;
+                }
+            }
+        '''},
+        {"java": '''
+            import com.google.gson.*;
+            import java.util.*;
+            public class Solution {
+                public static JsonElement solve(JsonObject data) {
+                    Map<String, JsonArray> groups = new LinkedHashMap<>();
+                    for (JsonElement raw : data.getAsJsonArray("words")) {
+                        String word = raw.getAsString(); char[] letters = word.toCharArray();
+                        Arrays.sort(letters); String key = new String(letters);
+                        groups.computeIfAbsent(key, ignored -> new JsonArray()).add(word);
+                    }
+                    JsonArray result = new JsonArray(); for (JsonArray group : groups.values()) result.add(group);
+                    return result;
+                }
+            }
+        '''},
+        [case("Ordinary anagrams", {"words": ["eat", "tea", "tan", "ate"]}, [["eat", "tea", "ate"], ["tan"]]),
+         case("Repeated letters matter", {"words": ["ab", "aab", "ba", "aba"]}, [["ab", "ba"], ["aab", "aba"]]),
+         case("Empty words", {"words": ["", "a", ""]}, [["", ""], ["a"]], True),
+         case("Preserve duplicate words", {"words": ["aa", "aa", "a"]}, [["aa", "aa"], ["a"]], True),
+         case("Group arrival order", {"words": ["z", "xy", "yx", "zz", "z"]}, [["z", "z"], ["xy", "yx"], ["zz"]], True),
+         case("No words", {"words": []}, [], True)],
+        "A sorted character sequence preserves multiplicity while providing a shared key for anagrams. LinkedHashMap retains the first-seen order of groups. Time O(sum of word length × log word length), space proportional to the input and output.",
+        ["What information does a set discard?", "The signature needs letter counts as well as letter identities.",
+         "Sort each word's complete character array and use the resulting string as the key."], 16,
+    ),
+    problem(
+        "polynomial-zero-coefficients", "Removing zeroes changes the polynomial",
+        "A polynomial multiplier normalizes its output by removing every zero coefficient. Interior zeroes encode missing powers and must stay in place.",
+        "edge", "medium", ["polynomials", "arrays", "normalization"],
+        ["Input.a and input.b list integer coefficients in ascending power order: [2, 0, 3] means 2 + 3x².",
+         "Return coefficients of the product in the same order. Remove only trailing zero coefficients; represent the zero polynomial as [0].",
+         "An empty input array represents zero. Each array has at most 30 coefficients of magnitude at most 100."],
+        {"python": '''
+            def solve(data):
+                a, b = data["a"], data["b"]
+                if not a or not b:
+                    return [0]
+                result = [0] * (len(a) + len(b) - 1)
+                for i, left in enumerate(a):
+                    for j, right in enumerate(b):
+                        result[i + j] += left * right
+                return [value for value in result if value != 0] or [0]
+        '''},
+        {"python": '''
+            def solve(data):
+                a, b = data["a"], data["b"]
+                if not a or not b:
+                    return [0]
+                result = [0] * (len(a) + len(b) - 1)
+                for i, left in enumerate(a):
+                    for j, right in enumerate(b):
+                        result[i + j] += left * right
+                while len(result) > 1 and result[-1] == 0:
+                    result.pop()
+                return result
+        '''},
+        [case("Ordinary product", {"a": [1, 1], "b": [1, 1]}, [1, 2, 1]),
+         case("Interior zero", {"a": [1, 1], "b": [1, -1]}, [1, 0, -1]),
+         case("Leading zero powers", {"a": [0, 1], "b": [0, 1]}, [0, 0, 1], True),
+         case("Trailing zero normalization", {"a": [2, 0], "b": [3, 0]}, [6], True),
+         case("Zero polynomial", {"a": [0, 0], "b": [1, 2]}, [0], True),
+         case("Empty polynomial", {"a": [], "b": [1]}, [0], True),
+         case("Constant product", {"a": [-3], "b": [2]}, [-6], True)],
+        "A coefficient's index encodes its power, so removing an interior entry changes every later power. Pop only zeroes at the highest-power end while retaining one coefficient for zero. Time O(len(a) × len(b)), space O(len(a) + len(b)).",
+        ["What does an array index mean in this representation?", "A zero coefficient can be structurally necessary.",
+         "Keep the product array intact and pop from its end while the last value is zero and more than one coefficient remains."], 16,
+    ),
+    problem(
+        "lossy-id-comparison", "Distinct identifiers become the same number",
+        "A JavaScript synchronizer converts decimal identifier strings to Number before comparing them. Large consecutive IDs round to the same value and appear equal.",
+        "edge", "medium", ["precision", "big-integers", "comparison"],
+        ["Input.left and input.right are nonempty strings of 1–100 ASCII digits representing nonnegative integers. Leading zeroes are allowed.",
+         "Return -1, 0, or 1 for exact numeric comparison of left with right. Do not lose precision for large identifiers."],
+        {"javascript": '''
+            function solve(data) {
+              const left = Number(data.left), right = Number(data.right);
+              return Number(left > right) - Number(left < right);
+            }
+            module.exports = { solve };
+        '''},
+        {"javascript": '''
+            function solve(data) {
+              const left = data.left.replace(/^0+/, '') || '0';
+              const right = data.right.replace(/^0+/, '') || '0';
+              if (left.length !== right.length) return left.length < right.length ? -1 : 1;
+              return Number(left > right) - Number(left < right);
+            }
+            module.exports = { solve };
+        '''},
+        [case("Small identifiers", {"left": "12", "right": "9"}, 1),
+         case("Adjacent large identifiers", {"left": "9007199254740993", "right": "9007199254740992"}, 1),
+         case("Leading zeroes", {"left": "00042", "right": "42"}, 0, True),
+         case("Zero representations", {"left": "000", "right": "0"}, 0, True),
+         case("Long common prefix", {"left": "1" + "0" * 98 + "1", "right": "1" + "0" * 98 + "2"}, -1, True),
+         case("Different lengths", {"left": "9" * 99, "right": "1" + "0" * 99}, -1, True),
+         case("Equal large identifiers", {"left": "7" * 100, "right": "7" * 100}, 0, True)],
+        "Strip leading zeroes, compare digit counts, then compare equal-length strings lexicographically. This compares nonnegative integers exactly without converting them to a limited-precision numeric type. Time and space O(digits).",
+        ["Can Number distinguish every integer with this many digits?", "After removing leading zeroes, the longer digit string is larger.",
+         "Normalize zero, compare lengths, and compare the strings directly only when their lengths match."], 16,
+    ),
+    problem(
+        "second-distinct-maximum", "Second place is still first place",
+        "A Go leaderboard takes the penultimate sorted score as the runner-up. Repeated maximum scores mean that position can still contain the highest score.",
+        "edge", "medium", ["duplicates", "extrema", "sorting"],
+        ["Return the second-largest distinct integer in input.values, or null if fewer than two distinct values exist.",
+         "There are at most 1,000 values with magnitude at most 1,000,000. Negative numbers and zero are valid."],
+        {"go": '''
+            package main
+            import "sort"
+            func Solve(data map[string]interface{}) interface{} {
+                values := []int{}
+                for _, raw := range data["values"].([]interface{}) { values = append(values, int(raw.(float64))) }
+                sort.Ints(values)
+                if len(values) < 2 { return nil }
+                return values[len(values)-2]
+            }
+        '''},
+        {"go": '''
+            package main
+            import "sort"
+            func Solve(data map[string]interface{}) interface{} {
+                values := []int{}
+                for _, raw := range data["values"].([]interface{}) { values = append(values, int(raw.(float64))) }
+                sort.Ints(values)
+                for i := len(values)-2; i >= 0; i-- {
+                    if values[i] != values[len(values)-1] { return values[i] }
+                }
+                return nil
+            }
+        '''},
+        [case("Distinct scores", {"values": [2, 9, 5]}, 5),
+         case("Tied maximum", {"values": [5, 9, 9]}, 5),
+         case("All equal", {"values": [3, 3, 3]}, None, True),
+         case("Negative scores", {"values": [-8, -2, -2, -5]}, -5, True),
+         case("Zero is runner-up", {"values": [0, 1, 1]}, 0, True),
+         case("Single value", {"values": [7]}, None, True),
+         case("No scores", {"values": []}, None, True)],
+        "After sorting, skip every copy of the maximum and return the first smaller value. If no such value exists, return null rather than a duplicate or numeric sentinel. Time O(n log n), space O(n) for the copied values.",
+        ["Does the second position always represent the second distinct score?", "There may be several copies of the maximum, or no smaller value at all.",
+         "Scan backward past all values equal to the maximum; return null if the scan finds none."], 12,
+    ),
+])
+
+
+# Problems 86–100: business rules and stateful workflows.
+CATALOG.extend([
+    problem(
+        "tiered-usage-billing", "Crossing a tier makes the bill shrink",
+        "A usage bill applies the final pricing tier to every unit. Crossing a threshold retroactively discounts earlier units, instead of charging each tier separately.",
+        "business", "medium", ["pricing", "tiers", "arithmetic"],
+        ["Input.units is an integer from 0 through 1,000,000.",
+         "Charge 5 cents for each of the first 100 units, 3 cents for each of the next 900 units, and 1 cent for each remaining unit.",
+         "Return the total integer cents. These are graduated tiers, with no minimum fee or rounding."],
+        {"python": '''
+            def solve(data):
+                units = data["units"]
+                rate = 5 if units <= 100 else 3 if units <= 1000 else 1
+                return units * rate
+        '''},
+        {"python": '''
+            def solve(data):
+                units = data["units"]
+                return min(units, 100) * 5 + min(max(units - 100, 0), 900) * 3 + max(units - 1000, 0)
+        '''},
+        [case("First tier", {"units": 50}, 250), case("Enter second tier", {"units": 101}, 503),
+         case("First boundary", {"units": 100}, 500, True), case("Second boundary", {"units": 1000}, 3200, True),
+         case("Enter last tier", {"units": 1001}, 3201, True), case("No usage", {"units": 0}, 0, True),
+         case("Maximum usage", {"units": 1000000}, 1002200, True)],
+        "Allocate usage to each band before multiplying by that band's price. Earlier units keep their original rates when later units enter a cheaper tier. Time and space O(1).",
+        ["Should the 101st unit change the price of the first 100?", "Calculate how many units belong to each band separately.",
+         "Charge min(units, 100) at 5, the next at most 900 at 3, and the remainder at 1."], 14,
+    ),
+    problem(
+        "shipping-after-discount", "The discount keeps shipping free",
+        "A checkout decides free-shipping eligibility before subtracting the discount. Orders below the required payable subtotal still receive free delivery.",
+        "business", "easy", ["checkout", "thresholds", "ordering"],
+        ["Input.subtotal, discount, threshold, and fee are nonnegative integer cents at most 1,000,000; discount <= subtotal.",
+         "Shipping is free when subtotal minus discount is at least threshold; otherwise charge fee.",
+         "Return {shipping: shipping charge, total: discounted subtotal plus shipping}. Apply this rule even to a zero subtotal."],
+        {"javascript": '''
+            function solve(data) {
+              const shipping = data.subtotal >= data.threshold ? 0 : data.fee;
+              return { shipping, total: data.subtotal - data.discount + shipping };
+            }
+            module.exports = { solve };
+        '''},
+        {"javascript": '''
+            function solve(data) {
+              const payable = data.subtotal - data.discount;
+              const shipping = payable >= data.threshold ? 0 : data.fee;
+              return { shipping, total: payable + shipping };
+            }
+            module.exports = { solve };
+        '''},
+        [case("Free delivery", {"subtotal": 120, "discount": 10, "threshold": 100, "fee": 15}, {"shipping": 0, "total": 110}),
+         case("Discount drops below threshold", {"subtotal": 100, "discount": 20, "threshold": 90, "fee": 10}, {"shipping": 10, "total": 90}),
+         case("Exact payable threshold", {"subtotal": 120, "discount": 20, "threshold": 100, "fee": 15}, {"shipping": 0, "total": 100}, True),
+         case("Zero threshold", {"subtotal": 0, "discount": 0, "threshold": 0, "fee": 15}, {"shipping": 0, "total": 0}, True),
+         case("Fully discounted order", {"subtotal": 50, "discount": 50, "threshold": 10, "fee": 7}, {"shipping": 7, "total": 7}, True),
+         case("No discount", {"subtotal": 40, "discount": 0, "threshold": 100, "fee": 5}, {"shipping": 5, "total": 45}, True)],
+        "Compute the payable subtotal first and use that same amount for both threshold eligibility and the final charge. Equality qualifies for free shipping. Time and space O(1).",
+        ["Which subtotal does the shipping policy use?", "The discounted amount can fall on the other side of the threshold.",
+         "Calculate payable = subtotal - discount before choosing the shipping charge."], 10,
+    ),
+    problem(
+        "loyalty-threshold-carry", "The reward wipes out leftover points",
+        "A rewards service issues one voucher and resets points to zero after crossing a threshold. It loses leftover points and misses multiple vouchers earned in one purchase.",
+        "business", "medium", ["rewards", "remainders", "state"],
+        ["Input.points is an integer from 0 through 99. Input.earned lists 0 through 100 nonnegative integer point awards, each at most 1,000.",
+         "After each award, issue one voucher per complete 100 points and carry the remainder to the next award.",
+         "Return {vouchers: [vouchers issued per award], state: {points: unspent remainder}}."],
+        {"python": '''
+            def solve(data):
+                points, vouchers = data["points"], []
+                for earned in data["earned"]:
+                    points += earned
+                    if points >= 100:
+                        vouchers.append(1)
+                        points = 0
+                    else:
+                        vouchers.append(0)
+                return {"vouchers": vouchers, "state": {"points": points}}
+        '''},
+        {"python": '''
+            def solve(data):
+                points, vouchers = data["points"], []
+                for earned in data["earned"]:
+                    issued, points = divmod(points + earned, 100)
+                    vouchers.append(issued)
+                return {"vouchers": vouchers, "state": {"points": points}}
+        '''},
+        [case("Exact reward", {"points": 80, "earned": [20]}, {"vouchers": [1], "state": {"points": 0}}),
+         case("Carry to next award", {"points": 80, "earned": [30, 90]}, {"vouchers": [1, 1], "state": {"points": 0}}),
+         case("Several vouchers at once", {"points": 0, "earned": [250]}, {"vouchers": [2], "state": {"points": 50}}, True, [{"path": "state.points", "equals": 50}]),
+         case("No award", {"points": 67, "earned": []}, {"vouchers": [], "state": {"points": 67}}, True),
+         case("Zero award", {"points": 99, "earned": [0]}, {"vouchers": [0], "state": {"points": 99}}, True),
+         case("Several purchases", {"points": 0, "earned": [60, 60, 90]}, {"vouchers": [0, 1, 1], "state": {"points": 10}}, True)],
+        "Divide the accumulated points by 100 after each award. The quotient is the number of new vouchers and the remainder is the state carried forward. Time O(awards), working space O(1) excluding the output.",
+        ["Which points have actually been redeemed?", "One award can cross the threshold more than once.",
+         "Use divmod(points + earned, 100) for issued vouchers and the next points balance."], 14,
+    ),
+    problem(
+        "seat-downgrade-capacity", "The plan shrinks below its active users",
+        "A subscription update accepts every nonnegative seat limit, including limits below the number of active users. Available seats become negative after a downgrade.",
+        "business", "medium", ["subscriptions", "capacity", "invariants"],
+        ["Input.users lists unique active user IDs; input.limit is a nonnegative seat limit at least as large as the user count.",
+         "Process integer input.requests in order. Accept a new seat limit only when it is nonnegative and at least the active user count; rejected requests leave the current limit unchanged.",
+         "Return {accepted: [booleans], state: {limit, available: limit - active users}}. Users do not change. At most 100 users and requests; limits have magnitude at most 1,000."],
+        {"python": '''
+            def solve(data):
+                limit, accepted = data["limit"], []
+                for requested in data["requests"]:
+                    ok = requested >= 0
+                    accepted.append(ok)
+                    if ok:
+                        limit = requested
+                return {"accepted": accepted, "state": {"limit": limit, "available": limit - len(data["users"])}}
+        '''},
+        {"python": '''
+            def solve(data):
+                limit, accepted = data["limit"], []
+                for requested in data["requests"]:
+                    ok = requested >= len(data["users"])
+                    accepted.append(ok)
+                    if ok:
+                        limit = requested
+                return {"accepted": accepted, "state": {"limit": limit, "available": limit - len(data["users"])}}
+        '''},
+        [case("Safe downgrade", {"limit": 5, "users": ["a", "b"], "requests": [3]}, {"accepted": [True], "state": {"limit": 3, "available": 1}}),
+         case("Below active usage", {"limit": 5, "users": ["a", "b", "c"], "requests": [2]}, {"accepted": [False], "state": {"limit": 5, "available": 2}}, assertions=[{"path": "state.limit", "equals": 5}]),
+         case("Exact usage", {"limit": 4, "users": ["a", "b"], "requests": [2]}, {"accepted": [True], "state": {"limit": 2, "available": 0}}, True),
+         case("Rejected update preserves previous success", {"limit": 5, "users": ["a", "b"], "requests": [4, 1]}, {"accepted": [True, False], "state": {"limit": 4, "available": 2}}, True),
+         case("Empty workspace", {"limit": 1, "users": [], "requests": [0, -1]}, {"accepted": [True, False], "state": {"limit": 0, "available": 0}}, True),
+         case("No changes", {"limit": 2, "users": ["a"], "requests": []}, {"accepted": [], "state": {"limit": 2, "available": 1}}, True)],
+        "Validate the proposed limit against committed usage before changing state. Since user count is nonnegative, requiring limit >= user count also rejects negative limits. Time O(requests), output space O(requests).",
+        ["A nonnegative capacity can still be too small.", "The available-seat count should never go below zero.",
+         "Accept only requested limits at least len(users), then update the current limit."], 14,
+    ),
+    problem(
+        "daily-usage-reset", "An old request rewinds the quota clock",
+        "A Go quota meter resets usage whenever the incoming day differs from its current day. A delayed request from yesterday resets today's quota and can be accepted incorrectly.",
+        "business", "medium", ["quotas", "events", "state"],
+        ["Input.limit is nonnegative. Input.state contains integer day and used, with 0 <= used <= limit. Input.requests lists {day, amount} in processing order.",
+         "Reject older-day requests without changing state. For a newer day, advance state.day and reset used to zero before validating the amount, even if that request is rejected.",
+         "Accept only positive amounts whose addition would not exceed limit. Rejections on the current day do not consume quota.",
+         "Return {accepted: [booleans], state: {day, used}}. At most 100 requests; all integers have magnitude at most 1,000,000."],
+        {"go": '''
+            package main
+            func Solve(data map[string]interface{}) interface{} {
+                state := data["state"].(map[string]interface{})
+                day, used, limit := int(state["day"].(float64)), int(state["used"].(float64)), int(data["limit"].(float64))
+                accepted := []bool{}
+                for _, raw := range data["requests"].([]interface{}) {
+                    request := raw.(map[string]interface{}); next, amount := int(request["day"].(float64)), int(request["amount"].(float64))
+                    if next != day { day, used = next, 0 }
+                    ok := amount > 0 && used+amount <= limit
+                    accepted = append(accepted, ok)
+                    if ok { used += amount }
+                }
+                return map[string]interface{}{"accepted": accepted, "state": map[string]int{"day": day, "used": used}}
+            }
+        '''},
+        {"go": '''
+            package main
+            func Solve(data map[string]interface{}) interface{} {
+                state := data["state"].(map[string]interface{})
+                day, used, limit := int(state["day"].(float64)), int(state["used"].(float64)), int(data["limit"].(float64))
+                accepted := []bool{}
+                for _, raw := range data["requests"].([]interface{}) {
+                    request := raw.(map[string]interface{}); next, amount := int(request["day"].(float64)), int(request["amount"].(float64))
+                    if next < day { accepted = append(accepted, false); continue }
+                    if next > day { day, used = next, 0 }
+                    ok := amount > 0 && used+amount <= limit
+                    accepted = append(accepted, ok)
+                    if ok { used += amount }
+                }
+                return map[string]interface{}{"accepted": accepted, "state": map[string]int{"day": day, "used": used}}
+            }
+        '''},
+        [case("Current-day usage", {"limit": 5, "state": {"day": 10, "used": 2}, "requests": [{"day": 10, "amount": 3}]}, {"accepted": [True], "state": {"day": 10, "used": 5}}),
+         case("Late request", {"limit": 5, "state": {"day": 10, "used": 4}, "requests": [{"day": 9, "amount": 1}]}, {"accepted": [False], "state": {"day": 10, "used": 4}}, assertions=[{"path": "state.used", "equals": 4}]),
+         case("New day resets quota", {"limit": 5, "state": {"day": 10, "used": 5}, "requests": [{"day": 11, "amount": 2}]}, {"accepted": [True], "state": {"day": 11, "used": 2}}, True),
+         case("New day with rejected amount", {"limit": 3, "state": {"day": 10, "used": 2}, "requests": [{"day": 11, "amount": 4}]}, {"accepted": [False], "state": {"day": 11, "used": 0}}, True),
+         case("Rejected amounts do not consume", {"limit": 3, "state": {"day": 1, "used": 1}, "requests": [{"day": 1, "amount": 3}, {"day": 1, "amount": 0}, {"day": 1, "amount": -1}, {"day": 1, "amount": 2}]}, {"accepted": [False, False, False, True], "state": {"day": 1, "used": 3}}, True),
+         case("Old event after reset", {"limit": 2, "state": {"day": 1, "used": 0}, "requests": [{"day": 2, "amount": 1}, {"day": 1, "amount": 1}]}, {"accepted": [True, False], "state": {"day": 2, "used": 1}}, True),
+         case("No requests", {"limit": 0, "state": {"day": 0, "used": 0}, "requests": []}, {"accepted": [], "state": {"day": 0, "used": 0}}, True)],
+        "Keep the meter's day monotonic: reject past days and reset only on future days. Then validate the amount against the current day's available quota. Time O(requests), working space O(1) excluding feedback.",
+        ["Does a different day always mean a newer day?", "Handle older, equal, and newer days as three separate cases.",
+         "Reject next < day, reset only for next > day, then validate positive usage against the limit."], 18,
+    ),
+    problem(
+        "contiguous-event-replay", "An early event skips the missing update",
+        "A projection consumer advances directly to any newer version. When events arrive out of order, it skips missing deltas and treats their later arrival as stale.",
+        "business", "hard", ["events", "ordering", "buffering"],
+        ["Input.state contains a nonnegative version and integer total. Input.events lists {version: positive integer, delta: integer}; the pending buffer starts empty.",
+         "Ignore versions <= the current applied version. Buffer higher versions; the first received event wins if a pending version repeats.",
+         "After each event, apply and remove every consecutively available version starting at current version + 1, adding each delta to total.",
+         "Return {applied: [versions in application order], state: {version, total, pending: [buffered {version, delta} sorted by version]}}. At most 100 events; integer magnitudes at most 1,000,000."],
+        {"javascript": '''
+            function solve(data) {
+              let { version, total } = data.state;
+              const applied = [];
+              for (const event of data.events) {
+                if (event.version <= version) continue;
+                version = event.version;
+                total += event.delta;
+                applied.push(version);
+              }
+              return { applied, state: { version, total, pending: [] } };
+            }
+            module.exports = { solve };
+        '''},
+        {"javascript": '''
+            function solve(data) {
+              let { version, total } = data.state;
+              const applied = [], pending = new Map();
+              for (const event of data.events) {
+                if (event.version <= version) continue;
+                if (!pending.has(event.version)) pending.set(event.version, event.delta);
+                while (pending.has(version + 1)) {
+                  version++;
+                  total += pending.get(version);
+                  pending.delete(version);
+                  applied.push(version);
+                }
+              }
+              const buffered = [...pending].sort((a, b) => a[0] - b[0]).map(([version, delta]) => ({ version, delta }));
+              return { applied, state: { version, total, pending: buffered } };
+            }
+            module.exports = { solve };
+        '''},
+        [case("In-order events", {"state": {"version": 0, "total": 0}, "events": [{"version": 1, "delta": 2}, {"version": 2, "delta": 3}]}, {"applied": [1, 2], "state": {"version": 2, "total": 5, "pending": []}}),
+         case("Gap later filled", {"state": {"version": 0, "total": 10}, "events": [{"version": 2, "delta": 5}, {"version": 1, "delta": 3}]}, {"applied": [1, 2], "state": {"version": 2, "total": 18, "pending": []}}, assertions=[{"path": "state.total", "equals": 18}]),
+         case("Unfilled gap", {"state": {"version": 0, "total": 0}, "events": [{"version": 3, "delta": 9}]}, {"applied": [], "state": {"version": 0, "total": 0, "pending": [{"version": 3, "delta": 9}]}}, True),
+         case("First buffered event wins", {"state": {"version": 0, "total": 0}, "events": [{"version": 2, "delta": 5}, {"version": 2, "delta": 99}, {"version": 1, "delta": 1}]}, {"applied": [1, 2], "state": {"version": 2, "total": 6, "pending": []}}, True),
+         case("Stale versions", {"state": {"version": 5, "total": 20}, "events": [{"version": 4, "delta": 100}, {"version": 5, "delta": 100}, {"version": 6, "delta": -2}]}, {"applied": [6], "state": {"version": 6, "total": 18, "pending": []}}, True),
+         case("Drain only a contiguous prefix", {"state": {"version": 0, "total": 0}, "events": [{"version": 4, "delta": 4}, {"version": 2, "delta": 2}, {"version": 1, "delta": 1}]}, {"applied": [1, 2], "state": {"version": 2, "total": 3, "pending": [{"version": 4, "delta": 4}]}}, True),
+         case("Sorted pending output", {"state": {"version": 0, "total": 7}, "events": [{"version": 5, "delta": 0}, {"version": 3, "delta": -1}]}, {"applied": [], "state": {"version": 0, "total": 7, "pending": [{"version": 3, "delta": -1}, {"version": 5, "delta": 0}]}}, True),
+         case("No events", {"state": {"version": 2, "total": 7}, "events": []}, {"applied": [], "state": {"version": 2, "total": 7, "pending": []}}, True)],
+        "Separate received versions from committed versions. Buffer each future version once, then drain only a contiguous sequence so every delta is applied exactly once and in order. Expected processing time O(events), plus O(pending log pending) for output ordering; space O(events).",
+        ["A newer version may still have a missing predecessor.", "The highest received version is not necessarily the highest safely applied version.",
+         "Buffer by version, retain the first duplicate, and repeatedly apply current + 1 while it is present."], 28,
+    ),
+    problem(
+        "cart-reservation-atomicity", "Half the cart is reserved after rejection",
+        "An inventory service reserves cart lines one by one. A later invalid line rejects the order after earlier products have already lost stock.",
+        "business", "hard", ["transactions", "inventory", "atomicity"],
+        ["Input.stock maps product IDs to nonnegative quantities. Input.items is an ordered list of {sku, quantity}; a SKU may repeat.",
+         "Accept only a nonempty cart where every quantity is positive, every SKU exists, and each SKU's combined quantity fits its stock.",
+         "Return {ok: boolean, state: {stock: updated inventory}}. Rejecting a cart must preserve all original quantities; success deducts all lines together.",
+         "At most 100 products and cart lines. Stock and quantities are integers with magnitude at most 1,000,000."],
+        {"python": '''
+            def solve(data):
+                stock = data["stock"].copy()
+                if not data["items"]:
+                    return {"ok": False, "state": {"stock": stock}}
+                for item in data["items"]:
+                    sku, quantity = item["sku"], item["quantity"]
+                    if quantity <= 0 or sku not in stock or quantity > stock[sku]:
+                        return {"ok": False, "state": {"stock": stock}}
+                    stock[sku] -= quantity
+                return {"ok": True, "state": {"stock": stock}}
+        '''},
+        {"python": '''
+            def solve(data):
+                stock, required = data["stock"].copy(), {}
+                if not data["items"]:
+                    return {"ok": False, "state": {"stock": stock}}
+                for item in data["items"]:
+                    sku, quantity = item["sku"], item["quantity"]
+                    if quantity <= 0 or sku not in stock:
+                        return {"ok": False, "state": {"stock": stock}}
+                    required[sku] = required.get(sku, 0) + quantity
+                if any(quantity > stock[sku] for sku, quantity in required.items()):
+                    return {"ok": False, "state": {"stock": stock}}
+                for sku, quantity in required.items():
+                    stock[sku] -= quantity
+                return {"ok": True, "state": {"stock": stock}}
+        '''},
+        [case("Complete reservation", {"stock": {"a": 5, "b": 3}, "items": [{"sku": "a", "quantity": 2}, {"sku": "b", "quantity": 1}]}, {"ok": True, "state": {"stock": {"a": 3, "b": 2}}}),
+         case("Later line cannot fit", {"stock": {"a": 5, "b": 3}, "items": [{"sku": "a", "quantity": 2}, {"sku": "b", "quantity": 4}]}, {"ok": False, "state": {"stock": {"a": 5, "b": 3}}}, assertions=[{"path": "state.stock.a", "equals": 5}]),
+         case("Repeated SKU exceeds stock", {"stock": {"a": 3}, "items": [{"sku": "a", "quantity": 2}, {"sku": "a", "quantity": 2}]}, {"ok": False, "state": {"stock": {"a": 3}}}, True),
+         case("Invalid later quantity", {"stock": {"a": 3}, "items": [{"sku": "a", "quantity": 1}, {"sku": "a", "quantity": 0}]}, {"ok": False, "state": {"stock": {"a": 3}}}, True),
+         case("Unknown later product", {"stock": {"a": 3}, "items": [{"sku": "a", "quantity": 1}, {"sku": "x", "quantity": 1}]}, {"ok": False, "state": {"stock": {"a": 3}}}, True),
+         case("Empty cart", {"stock": {"a": 3}, "items": []}, {"ok": False, "state": {"stock": {"a": 3}}}, True),
+         case("Combined exact stock", {"stock": {"a": 3, "idle": 2}, "items": [{"sku": "a", "quantity": 1}, {"sku": "a", "quantity": 2}]}, {"ok": True, "state": {"stock": {"a": 0, "idle": 2}}}, True)],
+        "Stage requested totals per SKU and validate the entire cart before changing inventory. Aggregate repeated SKUs so individually affordable lines cannot over-reserve the same product. Expected time O(products + lines), space O(products + distinct requested SKUs).",
+        ["What inventory is returned if the last cart line fails?", "Every line must be validated before any deduction becomes visible.",
+         "Aggregate quantities per SKU, validate all totals, then commit all deductions in a separate loop."], 25,
+    ),
+])
+
+CATALOG.extend([
+    problem(
+        "gift-card-expiry-order", "The oldest credit is spent last",
+        "A Java checkout spends gift cards in input order. Credit that expires soon is left untouched while later-expiring credit is consumed first.",
+        "business", "medium", ["payments", "expiry", "ordering"],
+        ["Input.cards lists {id, balance, expires_at} with unique IDs and nonnegative integer-cent balances. Input.amount is a nonnegative purchase amount; input.now is fixed.",
+         "Spend only cards with expires_at > now, in ascending expiry order, breaking ties by their original input order. Spend up to each balance until the purchase is covered.",
+         "Return {charge: amount still payable, state: {cards: all cards in original order with updated balances}}. Preserve expired cards and their balances.",
+         "At most 100 cards; integer magnitudes are at most 1,000,000."],
+        {"java": '''
+            import com.google.gson.*;
+            public class Solution {
+                public static JsonElement solve(JsonObject data) {
+                    JsonArray cards = data.getAsJsonArray("cards").deepCopy();
+                    int charge = data.get("amount").getAsInt(), now = data.get("now").getAsInt();
+                    for (JsonElement raw : cards) {
+                        JsonObject card = raw.getAsJsonObject();
+                        if (card.get("expires_at").getAsInt() <= now) continue;
+                        int balance = card.get("balance").getAsInt(), spent = Math.min(charge, balance);
+                        card.addProperty("balance", balance - spent); charge -= spent;
+                    }
+                    JsonObject state = new JsonObject(); state.add("cards", cards);
+                    JsonObject result = new JsonObject(); result.addProperty("charge", charge); result.add("state", state);
+                    return result;
+                }
+            }
+        '''},
+        {"java": '''
+            import com.google.gson.*;
+            import java.util.*;
+            public class Solution {
+                public static JsonElement solve(JsonObject data) {
+                    JsonArray cards = data.getAsJsonArray("cards").deepCopy();
+                    int charge = data.get("amount").getAsInt(), now = data.get("now").getAsInt();
+                    List<Integer> order = new ArrayList<>();
+                    for (int i = 0; i < cards.size(); i++) order.add(i);
+                    order.sort(Comparator.comparingInt(i -> cards.get(i).getAsJsonObject().get("expires_at").getAsInt()));
+                    for (int index : order) {
+                        JsonObject card = cards.get(index).getAsJsonObject();
+                        if (card.get("expires_at").getAsInt() <= now) continue;
+                        int balance = card.get("balance").getAsInt(), spent = Math.min(charge, balance);
+                        card.addProperty("balance", balance - spent); charge -= spent;
+                    }
+                    JsonObject state = new JsonObject(); state.add("cards", cards);
+                    JsonObject result = new JsonObject(); result.addProperty("charge", charge); result.add("state", state);
+                    return result;
+                }
+            }
+        '''},
+        [case("One card", {"now": 0, "amount": 30, "cards": [{"id": "a", "balance": 50, "expires_at": 10}]}, {"charge": 0, "state": {"cards": [{"id": "a", "balance": 20, "expires_at": 10}]}}),
+         case("Earlier expiry comes second", {"now": 0, "amount": 50, "cards": [{"id": "late", "balance": 50, "expires_at": 20}, {"id": "soon", "balance": 40, "expires_at": 10}]}, {"charge": 0, "state": {"cards": [{"id": "late", "balance": 40, "expires_at": 20}, {"id": "soon", "balance": 0, "expires_at": 10}]}}, assertions=[{"path": "state.cards.0.balance", "equals": 40}]),
+         case("Expiry is exclusive", {"now": 10, "amount": 20, "cards": [{"id": "old", "balance": 99, "expires_at": 10}, {"id": "live", "balance": 5, "expires_at": 11}]}, {"charge": 15, "state": {"cards": [{"id": "old", "balance": 99, "expires_at": 10}, {"id": "live", "balance": 0, "expires_at": 11}]}}, True),
+         case("Stable expiry ties", {"now": 0, "amount": 7, "cards": [{"id": "z", "balance": 5, "expires_at": 10}, {"id": "a", "balance": 5, "expires_at": 10}]}, {"charge": 0, "state": {"cards": [{"id": "z", "balance": 0, "expires_at": 10}, {"id": "a", "balance": 3, "expires_at": 10}]}}, True),
+         case("No cards", {"now": 5, "amount": 12, "cards": []}, {"charge": 12, "state": {"cards": []}}, True),
+         case("Zero purchase", {"now": 0, "amount": 0, "cards": [{"id": "a", "balance": 5, "expires_at": 10}]}, {"charge": 0, "state": {"cards": [{"id": "a", "balance": 5, "expires_at": 10}]}}, True),
+         case("Exhaust all valid credit", {"now": 0, "amount": 20, "cards": [{"id": "a", "balance": 0, "expires_at": 1}, {"id": "b", "balance": 3, "expires_at": 2}]}, {"charge": 17, "state": {"cards": [{"id": "a", "balance": 0, "expires_at": 1}, {"id": "b", "balance": 0, "expires_at": 2}]}}, True)],
+        "Sort card indices by expiry while keeping the cards themselves in their original order. Stable tie ordering preserves the input policy, and each deduction is capped by both the card balance and the remaining charge. Time O(n log n), space O(n).",
+        ["Is input order the same as spending priority?", "Changing the processing order must not reorder the returned card records.",
+         "Sort an index list by expires_at, skip expired cards, and update the original-position copies."], 18,
+    ),
+    problem(
+        "appointment-touching-slots", "Back-to-back appointments are rejected",
+        "A booking service treats an appointment's end as occupied time. It rejects requests that start exactly when the previous appointment finishes.",
+        "business", "medium", ["booking", "intervals", "state"],
+        ["Input.schedule contains existing non-overlapping [start, end] appointments with start < end. Input.requests lists proposed [start, end] pairs in processing order.",
+         "Appointments occupy half-open [start, end) intervals. Accept a request only when start < end and it overlaps neither existing nor previously accepted appointments.",
+         "Return {accepted: [booleans], state: {schedule: original appointments followed by accepted requests in processing order}}.",
+         "There are at most 100 existing appointments and 100 requests; endpoints are integers with magnitude at most 1,000,000."],
+        {"cpp": '''
+            #include <nlohmann/json.hpp>
+            using nlohmann::json;
+            json solve(const json& data) {
+                json schedule = data.at("schedule"), accepted = json::array();
+                for (const auto& request : data.at("requests")) {
+                    int start = request.at(0), end = request.at(1); bool ok = start < end;
+                    for (const auto& old : schedule)
+                        if (start <= old.at(1).get<int>() && old.at(0).get<int>() <= end) ok = false;
+                    accepted.push_back(ok); if (ok) schedule.push_back(request);
+                }
+                return json{{"accepted", accepted}, {"state", {{"schedule", schedule}}}};
+            }
+        '''},
+        {"cpp": '''
+            #include <nlohmann/json.hpp>
+            using nlohmann::json;
+            json solve(const json& data) {
+                json schedule = data.at("schedule"), accepted = json::array();
+                for (const auto& request : data.at("requests")) {
+                    int start = request.at(0), end = request.at(1); bool ok = start < end;
+                    for (const auto& old : schedule)
+                        if (start < old.at(1).get<int>() && old.at(0).get<int>() < end) ok = false;
+                    accepted.push_back(ok); if (ok) schedule.push_back(request);
+                }
+                return json{{"accepted", accepted}, {"state", {{"schedule", schedule}}}};
+            }
+        '''},
+        [case("Separate appointments", {"schedule": [[1, 2]], "requests": [[4, 5]]}, {"accepted": [True], "state": {"schedule": [[1, 2], [4, 5]]}}),
+         case("Back-to-back slot", {"schedule": [[1, 3]], "requests": [[3, 5]]}, {"accepted": [True], "state": {"schedule": [[1, 3], [3, 5]]}}, assertions=[{"path": "state.schedule", "equals": [[1, 3], [3, 5]]}]),
+         case("Earlier touching slot", {"schedule": [[3, 5]], "requests": [[1, 3]]}, {"accepted": [True], "state": {"schedule": [[3, 5], [1, 3]]}}, True),
+         case("Accepted request blocks later overlap", {"schedule": [], "requests": [[1, 4], [2, 3], [4, 6]]}, {"accepted": [True, False, True], "state": {"schedule": [[1, 4], [4, 6]]}}, True),
+         case("Invalid intervals", {"schedule": [], "requests": [[2, 2], [4, 1]]}, {"accepted": [False, False], "state": {"schedule": []}}, True),
+         case("Enclosing request", {"schedule": [[2, 3]], "requests": [[1, 4]]}, {"accepted": [False], "state": {"schedule": [[2, 3]]}}, True),
+         case("No requests", {"schedule": [[-2, 0]], "requests": []}, {"accepted": [], "state": {"schedule": [[-2, 0]]}}, True)],
+        "Two half-open intervals overlap only when each starts strictly before the other ends. Validate each request against the updated schedule and append only accepted intervals. Time O(requests × (existing + requests)), space O(existing + requests).",
+        ["Is the ending instant still reserved by the previous appointment?", "Touching endpoints need strict inequalities in the overlap test.",
+         "Use start < old_end and old_start < end, while separately requiring start < end."], 16,
+    ),
+    problem(
+        "rejected-rate-limit-slots", "Denied requests keep the limiter full",
+        "A sliding-window limiter records rejected requests as if they consumed capacity. A burst of denied attempts keeps blocking traffic even after earlier accepted requests expire.",
+        "business", "hard", ["rate-limiting", "sliding-window", "queues"],
+        ["Input.times lists request timestamps in nondecreasing integer order. Input.limit is 0 through 100 and input.window is a positive integer.",
+         "Before each request at time t, expire accepted timestamps <= t - window. Accept the request only if fewer than limit accepted timestamps remain.",
+         "Only accepted requests enter the window. Return {accepted: [booleans], state: {admitted: active accepted timestamps after the final request}}.",
+         "At most 1,000 requests; times and window are at most 1,000,000 and nonnegative except window must be positive. No requests means an empty admitted list."],
+        {"python": '''
+            from collections import deque
+            def solve(data):
+                admitted, accepted = deque(), []
+                for time in data["times"]:
+                    while admitted and admitted[0] <= time - data["window"]:
+                        admitted.popleft()
+                    ok = len(admitted) < data["limit"]
+                    accepted.append(ok)
+                    admitted.append(time)
+                return {"accepted": accepted, "state": {"admitted": list(admitted)}}
+        '''},
+        {"python": '''
+            from collections import deque
+            def solve(data):
+                admitted, accepted = deque(), []
+                for time in data["times"]:
+                    while admitted and admitted[0] <= time - data["window"]:
+                        admitted.popleft()
+                    ok = len(admitted) < data["limit"]
+                    accepted.append(ok)
+                    if ok:
+                        admitted.append(time)
+                return {"accepted": accepted, "state": {"admitted": list(admitted)}}
+        '''},
+        [case("Within quota", {"times": [0, 1], "limit": 2, "window": 10}, {"accepted": [True, True], "state": {"admitted": [0, 1]}}),
+         case("Rejected traffic does not extend usage", {"times": [0, 1, 2, 10, 11], "limit": 2, "window": 10}, {"accepted": [True, True, False, True, True], "state": {"admitted": [10, 11]}}, assertions=[{"path": "state.admitted", "equals": [10, 11]}]),
+         case("Exact expiry boundary", {"times": [0, 10], "limit": 1, "window": 10}, {"accepted": [True, True], "state": {"admitted": [10]}}, True),
+         case("Simultaneous requests", {"times": [5, 5, 5], "limit": 2, "window": 10}, {"accepted": [True, True, False], "state": {"admitted": [5, 5]}}, True),
+         case("Zero capacity", {"times": [0, 1], "limit": 0, "window": 10}, {"accepted": [False, False], "state": {"admitted": []}}, True),
+         case("Long idle gap", {"times": [1, 100, 101], "limit": 1, "window": 10}, {"accepted": [True, True, False], "state": {"admitted": [100]}}, True),
+         case("No requests", {"times": [], "limit": 3, "window": 10}, {"accepted": [], "state": {"admitted": []}}, True)],
+        "Maintain a deque containing accepted requests only. Expire its old prefix before checking capacity, and append the current timestamp only after approval. Each timestamp enters and leaves once, giving O(requests) time and O(limit) working space.",
+        ["Does a denied attempt consume any of the documented quota?", "The stored timestamps are both the capacity counter and the future expiry schedule.",
+         "Move admitted.append(time) inside an if ok block after the decision."], 22,
+    ),
+    problem(
+        "expense-policy-gates", "Approval substitutes for a missing receipt",
+        "An expense checker treats receipt and preapproval as interchangeable permissions. Larger expenses need both applicable checks, with precise amount thresholds.",
+        "business", "medium", ["approvals", "thresholds", "booleans"],
+        ["Input.amount is integer cents with magnitude at most 1,000,000; input.receipt and input.preapproved are booleans.",
+         "Approve only positive amounts. Amounts up to and including 2,500 need neither receipt nor preapproval.",
+         "Amounts above 2,500 require a receipt. Amounts above 10,000 additionally require preapproval. Return a boolean under this exercise's policy."],
+        {"java": '''
+            import com.google.gson.*;
+            public class Solution {
+                public static JsonElement solve(JsonObject data) {
+                    int amount = data.get("amount").getAsInt();
+                    boolean receipt = data.get("receipt").getAsBoolean(), approved = data.get("preapproved").getAsBoolean();
+                    return new JsonPrimitive(amount > 0 && (amount <= 2500 || receipt || approved));
+                }
+            }
+        '''},
+        {"java": '''
+            import com.google.gson.*;
+            public class Solution {
+                public static JsonElement solve(JsonObject data) {
+                    int amount = data.get("amount").getAsInt();
+                    boolean receipt = data.get("receipt").getAsBoolean(), approved = data.get("preapproved").getAsBoolean();
+                    return new JsonPrimitive(amount > 0 && (amount <= 2500 || receipt) && (amount <= 10000 || approved));
+                }
+            }
+        '''},
+        [case("Small expense", {"amount": 2500, "receipt": False, "preapproved": False}, True),
+         case("Large expense lacks preapproval", {"amount": 10001, "receipt": True, "preapproved": False}, False),
+         case("Approval does not replace receipt", {"amount": 2501, "receipt": False, "preapproved": True}, False, True),
+         case("Exact approval threshold", {"amount": 10000, "receipt": True, "preapproved": False}, True, True),
+         case("Both conditions met", {"amount": 10001, "receipt": True, "preapproved": True}, True, True),
+         case("Zero is invalid", {"amount": 0, "receipt": True, "preapproved": True}, False, True),
+         case("Negative is invalid", {"amount": -1, "receipt": True, "preapproved": True}, False, True),
+         case("Missing receipt above threshold", {"amount": 2501, "receipt": False, "preapproved": False}, False, True)],
+        "Express each requirement as an independent gate: positive amount, receipt when required, and preapproval when required. Combine the gates with AND, preserving inclusive amount thresholds. Time and space O(1).",
+        ["Which requirements accumulate as the amount increases?", "Preapproval does not waive the receipt requirement.",
+         "Require amount > 0 AND (amount <= 2500 OR receipt) AND (amount <= 10000 OR preapproved)."], 14,
+    ),
+    problem(
+        "split-payment-remainder", "The split leaves cents unassigned",
+        "A group-payment helper divides an integer-cent total equally and discards the remainder. The assigned shares no longer add up to the original charge.",
+        "business", "medium", ["allocation", "rounding", "conservation"],
+        ["Input.amount is 0 through 1,000,000 integer cents and input.people is 1 through 100.",
+         "Return one nonnegative integer-cent share per person, in person order. Shares must sum exactly to amount and differ by at most one cent.",
+         "Assign any extra cents one each to the earliest people."],
+        {"python": 'def solve(data):\n    return [data["amount"] // data["people"]] * data["people"]'},
+        {"python": '''
+            def solve(data):
+                base, extra = divmod(data["amount"], data["people"])
+                return [base + (index < extra) for index in range(data["people"])]
+        '''},
+        [case("Even split", {"amount": 12, "people": 3}, [4, 4, 4]),
+         case("One leftover cent", {"amount": 10, "people": 3}, [4, 3, 3]),
+         case("Less than one cent each", {"amount": 1, "people": 3}, [1, 0, 0], True),
+         case("Several extra cents", {"amount": 13, "people": 5}, [3, 3, 3, 2, 2], True),
+         case("Zero amount", {"amount": 0, "people": 3}, [0, 0, 0], True),
+         case("Single person", {"amount": 1000000, "people": 1}, [1000000], True)],
+        "Use integer quotient and remainder. Give everyone the quotient, then add one cent to the first remainder people. This preserves the total and makes the largest difference one cent. Time and output space O(people).",
+        ["Where do cents left over from integer division go?", "The remainder tells you exactly how many people need one extra cent.",
+         "Use divmod(amount, people) and add one when index < remainder."], 14,
+    ),
+    problem(
+        "cancellation-restock-once", "Cancelling twice creates extra stock",
+        "A reservation workflow restores stock whenever it sees a cancellation. Replayed cancellations restock an order that has already been released.",
+        "business", "hard", ["idempotency", "cancellation", "state-machine"],
+        ["Input.stock is a nonnegative integer; no orders exist initially. Input.events contains {op: 'reserve', id, quantity} or {op: 'cancel', id}.",
+         "Reserve only a never-successfully-used ID with a positive quantity no larger than available stock. Failed reserves do not claim their IDs.",
+         "Cancel only an active reserved order, restoring its quantity exactly once. A cancelled ID cannot be reserved again; missing or repeated cancellations are rejected.",
+         "Return {accepted: [booleans], state: {stock, orders: [{id, quantity, status: 'reserved' or 'cancelled'}]}} in successful reservation order. IDs are arbitrary strings. At most 100 events; integer magnitudes at most 1,000,000."],
+        {"javascript": '''
+            function solve(data) {
+              let stock = data.stock;
+              const orders = new Map(), accepted = [];
+              for (const event of data.events) {
+                let ok = false;
+                if (event.op === 'reserve') {
+                  if (!orders.has(event.id) && event.quantity > 0 && event.quantity <= stock) {
+                    stock -= event.quantity;
+                    orders.set(event.id, { id: event.id, quantity: event.quantity, status: 'reserved' });
+                    ok = true;
+                  }
+                } else if (orders.has(event.id)) {
+                  const order = orders.get(event.id);
+                  stock += order.quantity;
+                  order.status = 'cancelled';
+                  ok = true;
+                }
+                accepted.push(ok);
+              }
+              return { accepted, state: { stock, orders: [...orders.values()] } };
+            }
+            module.exports = { solve };
+        '''},
+        {"javascript": '''
+            function solve(data) {
+              let stock = data.stock;
+              const orders = new Map(), accepted = [];
+              for (const event of data.events) {
+                let ok = false;
+                if (event.op === 'reserve') {
+                  if (!orders.has(event.id) && event.quantity > 0 && event.quantity <= stock) {
+                    stock -= event.quantity;
+                    orders.set(event.id, { id: event.id, quantity: event.quantity, status: 'reserved' });
+                    ok = true;
+                  }
+                } else if (orders.has(event.id) && orders.get(event.id).status === 'reserved') {
+                  const order = orders.get(event.id);
+                  stock += order.quantity;
+                  order.status = 'cancelled';
+                  ok = true;
+                }
+                accepted.push(ok);
+              }
+              return { accepted, state: { stock, orders: [...orders.values()] } };
+            }
+            module.exports = { solve };
+        '''},
+        [case("Reserve then cancel", {"stock": 5, "events": [{"op": "reserve", "id": "a", "quantity": 3}, {"op": "cancel", "id": "a"}]}, {"accepted": [True, True], "state": {"stock": 5, "orders": [{"id": "a", "quantity": 3, "status": "cancelled"}]}}),
+         case("Repeated cancellation", {"stock": 5, "events": [{"op": "reserve", "id": "a", "quantity": 3}, {"op": "cancel", "id": "a"}, {"op": "cancel", "id": "a"}]}, {"accepted": [True, True, False], "state": {"stock": 5, "orders": [{"id": "a", "quantity": 3, "status": "cancelled"}]}}, assertions=[{"path": "state.stock", "equals": 5}]),
+         case("Unknown cancellation", {"stock": 0, "events": [{"op": "cancel", "id": "x"}]}, {"accepted": [False], "state": {"stock": 0, "orders": []}}, True),
+         case("Failed reserve can retry", {"stock": 3, "events": [{"op": "reserve", "id": "a", "quantity": 4}, {"op": "reserve", "id": "a", "quantity": 2}]}, {"accepted": [False, True], "state": {"stock": 1, "orders": [{"id": "a", "quantity": 2, "status": "reserved"}]}}, True),
+         case("Cannot reuse cancelled ID", {"stock": 3, "events": [{"op": "reserve", "id": "a", "quantity": 1}, {"op": "cancel", "id": "a"}, {"op": "reserve", "id": "a", "quantity": 2}]}, {"accepted": [True, True, False], "state": {"stock": 3, "orders": [{"id": "a", "quantity": 1, "status": "cancelled"}]}}, True),
+         case("Invalid quantities", {"stock": 3, "events": [{"op": "reserve", "id": "a", "quantity": 0}, {"op": "reserve", "id": "a", "quantity": -1}]}, {"accepted": [False, False], "state": {"stock": 3, "orders": []}}, True),
+         case("Prototype-like ID and duplicate reserve", {"stock": 5, "events": [{"op": "reserve", "id": "__proto__", "quantity": 2}, {"op": "reserve", "id": "__proto__", "quantity": 1}]}, {"accepted": [True, False], "state": {"stock": 3, "orders": [{"id": "__proto__", "quantity": 2, "status": "reserved"}]}}, True),
+         case("No events", {"stock": 7, "events": []}, {"accepted": [], "state": {"stock": 7, "orders": []}}, True)],
+        "An existing order is not necessarily still cancellable. Permit only the reserved-to-cancelled transition and restore stock inside that transition. Keep cancelled records so their IDs remain consumed. Expected time and space O(events).",
+        ["Does finding an order prove its stock is still reserved?", "A successful cancellation changes which operations remain valid for that ID.",
+         "Require status === 'reserved' before restoring stock and changing status to 'cancelled'."], 22,
+    ),
+    problem(
+        "campaign-end-exclusive", "The promotion lives one instant too long",
+        "A promotion checker includes its ending instant, allowing a campaign after the configured exclusive deadline.",
+        "business", "easy", ["campaigns", "time-windows", "eligibility"],
+        ["Input.start, end, and now are integer timestamps of magnitude at most 1,000,000, with start < end. The active interval is [start, end).",
+         "Input.quantity is a nonnegative integer and input.minimum is positive, each at most 100. Input.member and input.members_only are booleans.",
+         "Return true only while the campaign is active, quantity >= minimum, and membership is present when members_only is true."],
+        {"python": '''
+            def solve(data):
+                return (data["start"] <= data["now"] <= data["end"]
+                        and data["quantity"] >= data["minimum"]
+                        and (not data["members_only"] or data["member"]))
+        '''},
+        {"python": '''
+            def solve(data):
+                return (data["start"] <= data["now"] < data["end"]
+                        and data["quantity"] >= data["minimum"]
+                        and (not data["members_only"] or data["member"]))
+        '''},
+        [case("At opening", {"start": 10, "end": 20, "now": 10, "quantity": 2, "minimum": 2, "member": False, "members_only": False}, True),
+         case("At closing", {"start": 10, "end": 20, "now": 20, "quantity": 2, "minimum": 2, "member": True, "members_only": True}, False),
+         case("Before opening", {"start": 10, "end": 20, "now": 9, "quantity": 2, "minimum": 2, "member": True, "members_only": False}, False, True),
+         case("Last active timestamp", {"start": 10, "end": 20, "now": 19, "quantity": 2, "minimum": 2, "member": True, "members_only": True}, True, True),
+         case("Insufficient quantity", {"start": 10, "end": 20, "now": 15, "quantity": 1, "minimum": 2, "member": True, "members_only": False}, False, True),
+         case("Membership required", {"start": 10, "end": 20, "now": 15, "quantity": 2, "minimum": 2, "member": False, "members_only": True}, False, True)],
+        "Use an inclusive start and exclusive end, then combine the quantity and membership gates. Keeping all gates independent prevents a valid membership from bypassing time or quantity rules. Time and space O(1).",
+        ["Is the campaign still active at exactly its end timestamp?", "The two ends of a half-open interval use different comparisons.",
+         "Require start <= now < end and retain the quantity and membership conditions."], 10,
+    ),
+    problem(
+        "waitlist-promotion", "The waitlist that skips its turn",
+        "A membership service queues people when capacity is full but fails to promote them when a seat opens. A new arrival can take a seat ahead of everyone already waiting.",
+        "business", "hard", ["queues", "fairness", "state-machine"],
+        ["Input.capacity is 0 through 100; input.members lists unique current user IDs with length <= capacity. The waiting queue starts empty.",
+         "Process input.events as {op: 'join' or 'leave', user: string}. Joining an existing member or waiting user has no effect; otherwise take a free seat or append to the waitlist.",
+         "Leaving removes the user from either members or waiting, if present. Immediately fill any freed seats from the front of the waiting queue before the next event.",
+         "Return {state: {members, waiting}}. Keep member order, appending newly seated users; keep FIFO waiting order. At most 200 events. IDs are arbitrary ASCII strings."],
+        {"python": '''
+            def solve(data):
+                members, waiting = list(data["members"]), []
+                for event in data["events"]:
+                    user = event["user"]
+                    if event["op"] == "join":
+                        if user in members or user in waiting:
+                            continue
+                        if len(members) < data["capacity"]:
+                            members.append(user)
+                        else:
+                            waiting.append(user)
+                    elif user in members:
+                        members.remove(user)
+                    elif user in waiting:
+                        waiting.remove(user)
+                return {"state": {"members": members, "waiting": waiting}}
+        '''},
+        {"python": '''
+            from collections import deque
+            def solve(data):
+                members, waiting = list(data["members"]), deque()
+                for event in data["events"]:
+                    user = event["user"]
+                    if event["op"] == "join":
+                        if user in members or user in waiting:
+                            continue
+                        if len(members) < data["capacity"]:
+                            members.append(user)
+                        else:
+                            waiting.append(user)
+                    elif user in members:
+                        members.remove(user)
+                    elif user in waiting:
+                        waiting.remove(user)
+                    while waiting and len(members) < data["capacity"]:
+                        members.append(waiting.popleft())
+                return {"state": {"members": members, "waiting": list(waiting)}}
+        '''},
+        [case("Seat available", {"capacity": 2, "members": ["a"], "events": [{"op": "join", "user": "b"}]}, {"state": {"members": ["a", "b"], "waiting": []}}),
+         case("Promote immediately", {"capacity": 1, "members": ["a"], "events": [{"op": "join", "user": "b"}, {"op": "join", "user": "c"}, {"op": "leave", "user": "a"}]}, {"state": {"members": ["b"], "waiting": ["c"]}}, assertions=[{"path": "state.members", "equals": ["b"]}]),
+         case("New arrival cannot jump queue", {"capacity": 1, "members": ["a"], "events": [{"op": "join", "user": "b"}, {"op": "leave", "user": "a"}, {"op": "join", "user": "c"}]}, {"state": {"members": ["b"], "waiting": ["c"]}}, True),
+         case("Waiting user withdraws", {"capacity": 1, "members": ["a"], "events": [{"op": "join", "user": "b"}, {"op": "join", "user": "c"}, {"op": "leave", "user": "b"}, {"op": "leave", "user": "a"}]}, {"state": {"members": ["c"], "waiting": []}}, True),
+         case("Duplicate joins", {"capacity": 1, "members": ["a"], "events": [{"op": "join", "user": "a"}, {"op": "join", "user": "b"}, {"op": "join", "user": "b"}, {"op": "leave", "user": "a"}]}, {"state": {"members": ["b"], "waiting": []}}, True),
+         case("Zero capacity", {"capacity": 0, "members": [], "events": [{"op": "join", "user": "b"}, {"op": "leave", "user": "b"}, {"op": "join", "user": "c"}]}, {"state": {"members": [], "waiting": ["c"]}}, True),
+         case("Preserve member and queue order", {"capacity": 2, "members": ["a", "b"], "events": [{"op": "join", "user": "c"}, {"op": "join", "user": "d"}, {"op": "leave", "user": "a"}, {"op": "leave", "user": "b"}]}, {"state": {"members": ["c", "d"], "waiting": []}}, True),
+         case("Unknown departure", {"capacity": 1, "members": ["a"], "events": [{"op": "leave", "user": "x"}]}, {"state": {"members": ["a"], "waiting": []}}, True),
+         case("No events", {"capacity": 1, "members": [], "events": []}, {"state": {"members": [], "waiting": []}}, True)],
+        "Restore the capacity invariant immediately after each event: if a seat is free and anyone is waiting, seat the earliest waiting user. Handle waiting-list departures and duplicate joins so promotion never reintroduces a withdrawn or already-seated user. With linear membership checks, time O(events × (capacity + events)), space O(capacity + events).",
+        ["What must happen as soon as a current member leaves?", "Promotion must happen before another join can claim the vacant seat.",
+         "After processing an event, repeatedly move the front waiting user into members while capacity remains."], 25,
     ),
 ])
