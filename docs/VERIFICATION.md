@@ -1,5 +1,24 @@
 # Verification results
 
+## 121-problem catalog — September 16, 2026
+
+Added 20 problems as IDs 102–121: four each in runtime, logic, edge cases, business flow, and system design. The catalog contains **121 problems, 159 language variants, and 799 test cases**, including 557 hidden cases. The additions include five easy, eleven medium, and four hard problems, each with three progressive hints and a reference explanation.
+
+The verification flow was library → API → seeded PostgreSQL catalog → workspace → Celery → execution sandbox → persisted feedback. Browser checks used Vite at `http://localhost:5177` with the real Compose API, database, queue, worker, and sandbox.
+
+| Check | Result |
+| --- | --- |
+| Backend | 26 tests passed; Ruff passed. Upgrade regressions cover 40-, 100-, and 101-problem installations, preserving local content, bookmarks, and solved submissions after repeated seeding. |
+| New problem execution | 46/46 checks passed in the real sandbox: all 23 starters execute and fail at least one public case, and all 23 reference solutions pass their complete public/hidden tests. The new problems contain 163 test cases. The final Java circuit-breaker pair was rerun after correcting its response format. |
+| Catalog preservation | All original 101 definitions are unchanged from the previous Git revision. Two PostgreSQL seed runs expanded the library from 101 to 121 while preserving the full row digests of all existing problems and all 45 existing submissions. |
+| Frontend checks | TypeScript and ESLint passed. Browser verification found meaningful content, 121 catalog entries, working filters, and no page errors or framework error overlay. |
+| Browser regressions | Two Playwright flows passed: all seven pages and 121 unique IDs, navigation to the final new Java case, Go filtering, mobile layout, theme switching, five system design cases, solution submission/unlock, and guest/member course progress separation. |
+| Live submissions | Five new problems across Python, JavaScript, C++, Go, and Java reproduced starter failures and accepted reference solutions through the API and worker. Ten attempts and five solves persisted; hidden feedback stayed redacted and all five solution pages unlocked. |
+
+Local evidence is recorded in `artifacts/catalog-verification-121.jsonl`, `artifacts/catalog-seed-121.log`, `artifacts/browser-catalog-121.log`, and `artifacts/http-catalog-121.jsonl`. Browser captures include `artifacts/catalog-121-browser.png` and `artifacts/system-design-121.png`. Artifacts are ignored by Git. The catalog verifier creates no submission history; the browser and HTTP flows create clearly named local test accounts and real submissions.
+
+Reproduce the backend checks with `.venv/bin/pytest backend/tests -q` and `.venv/bin/ruff check backend`. With the local preview and Compose services running, run `BASE_URL=http://localhost:5177 npm run test:e2e -- --grep 'catalog filtering|course progress'` from `frontend`. The complete catalog, including these additions, remains executable with `docker compose exec worker python -m app.verify_catalog`; only the new problem variants were re-executed for this expansion.
+
 ## System design cases and courses — September 15, 2026
 
 Verified against Vite at `http://localhost:5177` and the real Docker Compose API, PostgreSQL, queue, worker, and execution sandbox. The preview uses port 5177 because another local project occupies 5173.
@@ -14,7 +33,7 @@ Verified against Vite at `http://localhost:5177` and the real Docker Compose API
 | Complete submission flow | Register, filter System design, reproduce the starter failure, paste a solution, submit all tests, unlock the reference explanation, and confirm the solved category in personal progress. |
 | Catalog and layout | All six catalog pages, final system design case, filters, desktop light/dark themes, and mobile navigation/overflow verified. No page errors in the course walkthrough. |
 
-The catalog now contains **101 problems, 136 language variants, and 636 test cases**. New execution checks cover the added problem; the complete 100-problem execution results below describe the earlier run. The browser tests create named local test accounts and real submissions. Local captures are saved under `artifacts/system-design-*.png`.
+That revision contained **101 problems, 136 language variants, and 636 test cases**. Its new execution checks cover the added problem; the complete 100-problem execution results below describe the earlier run. The browser tests create named local test accounts and real submissions. Local captures are saved under `artifacts/system-design-*.png`.
 
 Reproduce the new browser checks with `BASE_URL=http://localhost:5177 npm run test:e2e -- --grep 'courses|course progress|catalog filtering'` from `frontend` when the preview and Compose worker are running. Include the preview origin in `ALLOWED_ORIGINS` for authenticated submissions.
 

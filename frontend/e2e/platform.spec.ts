@@ -11,23 +11,32 @@ test('catalog filtering, navigation, and mobile layout', async ({ page }) => {
   await page.reload();
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
   await expect(page.locator('.problem-table tbody tr')).toHaveCount(20);
-  await expect(page.locator('.catalog-footer')).toContainText('101 case studies');
+  await expect(page.locator('.catalog-footer')).toContainText('121 case studies');
   await page.screenshot({ path: '../artifacts/library-dark.png', fullPage: true });
   await page.getByRole('button', { name: 'Switch to light theme' }).click();
   const caseNumbers = await page.locator('.problem-number').allTextContents();
-  for (let current = 2; current <= 5; current++) {
+  for (let current = 2; current <= 6; current++) {
     await page.getByRole('button', { name: 'Next page', exact: true }).click();
     await expect(page).toHaveURL(`/?page=${current}`);
     await expect(page.locator('.problem-table tbody tr')).toHaveCount(20);
     await expect(page.locator('.problem-number').first()).toHaveText(`${(current - 1) * 20 + 1}.`);
     caseNumbers.push(...await page.locator('.problem-number').allTextContents());
   }
-  expect(new Set(caseNumbers).size).toBe(100);
+  expect(new Set(caseNumbers).size).toBe(120);
   await page.getByRole('button', { name: 'Next page', exact: true }).click();
-  await expect(page).toHaveURL('/?page=6');
+  await expect(page).toHaveURL('/?page=7');
   await expect(page.locator('.problem-table tbody tr')).toHaveCount(1);
-  await expect(page.getByRole('link', { name: /Choosing the right system design/ })).toBeVisible();
+  await expect(page.getByRole('link', { name: /The circuit that never closes/ })).toBeVisible();
+  caseNumbers.push(...await page.locator('.problem-number').allTextContents());
+  expect(new Set(caseNumbers).size).toBe(121);
   await expect(page.getByRole('button', { name: 'Next page', exact: true })).toBeDisabled();
+  await page.getByRole('link', { name: /The circuit that never closes/ }).click();
+  await expect(page.getByRole('heading', { name: 'The circuit that never closes', exact: true })).toBeVisible();
+  await expect(page.locator('.monaco-editor')).toBeVisible();
+  await page.goBack();
+  await expect(page).toHaveURL('/?page=7');
+  await page.getByRole('button', { name: 'Previous page', exact: true }).click();
+  await expect(page).toHaveURL('/?page=6');
   await page.getByRole('button', { name: 'Previous page', exact: true }).click();
   await expect(page).toHaveURL('/?page=5');
   await page.setViewportSize({ width: 390, height: 844 });
@@ -45,7 +54,8 @@ test('catalog filtering, navigation, and mobile layout', async ({ page }) => {
   await expect(page.getByRole('link', { name: /One item short/ })).toHaveCount(0);
   await page.getByRole('button', { name: 'Reset filters' }).click();
   await page.getByLabel('Language filter').selectOption('go');
-  await expect(page.locator('.problem-table tbody tr')).toHaveCount(18);
+  await expect(page.locator('.problem-table tbody tr')).toHaveCount(20);
+  await expect(page.locator('.catalog-footer')).toContainText('21 case studies');
   await page.getByRole('link', { name: 'Start a case', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'One item short', exact: true })).toBeVisible();
   await expect(page.locator('.monaco-editor')).toBeVisible();

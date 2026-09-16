@@ -27,13 +27,13 @@ For a different port, change both `APP_PORT` and the corresponding origin in `AL
 
 ## What is included
 
-- 101 executable case studies: 25 each for runtime, logic, business flow, and edge cases, plus a system design challenge, with 136 language variants and 636 public/hidden test cases. Each case includes buggy starter code, three progressive hints, and a reference solution. The catalog has search, tags, category/language/difficulty/progress filters, ordering, pagination, and bookmarks.
+- 121 executable case studies: 29 each for runtime, logic, business flow, and edge cases, plus five system design challenges, with 159 language variants and 799 public/hidden test cases. Each case includes buggy starter code, three progressive hints, and a reference solution. The catalog has search, tags, category/language/difficulty/progress filters, ordering, pagination, and bookmarks.
 - Three system design courses at `/courses`, with nine lessons on architecture selection, data and caching, and queues and reliability. Every lesson includes a worked example, a knowledge check with answer feedback, and an official reference. Completion is saved in this browser separately for guests and each signed-in user; it does not sync across devices. Courses link directly to executable practice cases.
 - A simple interface with persistent light and dark themes, matching Monaco and notifications. Contextual actions open a case, resume a submission, request guidance, share a fix, and continue to the next challenge.
 - Locally bundled Monaco with highlighting, find, folding, bracket matching, and completion; language-specific drafts survive reloads. No Monaco CDN dependency.
 - Manual and AI-assist modes, public runs, full submissions, queued/running/completed feedback, readable errors, and per-case state assertions.
 - Python, Java 17, JavaScript, C++17, and Go execution. Problems offer the languages appropriate to their scenario.
-- Real rollback, authorization, idempotency, and synchronized multithreaded wallet challenges, plus search, sorting, graphs, Unicode, parsing, dynamic programming, exact decimals, graduated billing, atomic cart reservations, buffered event replay, rate limits, cancellations, and waitlist workflows.
+- Real rollback, authorization, idempotency, and synchronized multithreaded wallet challenges, plus search, sorting, graphs, Unicode, parsing, dynamic programming, exact decimals, graduated billing, atomic cart reservations, buffered event replay, rate limits, cancellations, and waitlist workflows. New cases cover exact BigInt serialization, shortest-path relaxation, escaped delimiters, timezone ordering, revision approvals, cache invalidation, queue leases, consistent hashing, and circuit breaker recovery.
 - Argon2 password hashing, revocable database-backed sessions in HttpOnly cookies, CSRF tokens, request-origin validation, rate limits, and ownership checks.
 - Submission history with editor restoration, optimal solutions unlocked by an accepted full submission, and optional sharing of accepted code/prompts.
 - Discussions linked to case studies, replies, votes, and author-controlled deletion.

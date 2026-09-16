@@ -4654,3 +4654,1099 @@ CATALOG.append(problem(
      "Skip any candidate that misses a limit, then retain the smallest (monthly_cost, ops, id) tuple. Handle an empty feasible set."],
     20,
 ))
+
+
+# Append-only expansion: IDs 102–121 preserve every previously seeded case.
+CATALOG.extend([
+    problem(
+        "empty-iterator-fallback", "The search with no next result",
+        "An alert service returns the first reading above a threshold. A quiet interval crashes the service instead of reporting that no reading qualified.",
+        "runtime", "easy", ["iterators", "defaults", "monitoring"],
+        ["Input.readings is a list of at most 200 integers; input.threshold is an integer. Values have magnitude at most 10,000.",
+         "Return the first reading strictly greater than threshold, in input order. Return null if none qualifies.",
+         "Zero and negative readings are valid results; do not use truthiness to detect a missing result."],
+        {"python": '''
+            def solve(data):
+                matches = (value for value in data["readings"] if value > data["threshold"])
+                return next(matches)
+        '''},
+        {"python": '''
+            def solve(data):
+                matches = (value for value in data["readings"] if value > data["threshold"])
+                return next(matches, None)
+        '''},
+        [case("An alert is present", {"readings": [2, 9, 7], "threshold": 5}, 9),
+         case("Quiet interval", {"readings": [1, 2, 3], "threshold": 5}, None),
+         case("No readings", {"readings": [], "threshold": 0}, None, True),
+         case("Equality is not an alert", {"readings": [5, 5], "threshold": 5}, None, True),
+         case("Zero qualifies", {"readings": [-3, 0, 2], "threshold": -1}, 0, True),
+         case("Negative result", {"readings": [-9, -3, -1], "threshold": -5}, -3, True),
+         case("Last reading qualifies", {"readings": [1, 1, 2], "threshold": 1}, 2, True)],
+        "next() raises StopIteration when the filtered iterator is exhausted. Supply None as its default to distinguish absence from valid values such as zero. The generator stops at the first match. Time O(n), extra space O(1).",
+        ["What happens when the filter yields no values?", "An iterator can finish normally without producing a result.",
+         "Use next(matches, None) so exhaustion returns the required null result."], 8,
+    ),
+    problem(
+        "fixed-size-roster", "The roster that cannot grow",
+        "A roster loads correctly from an array, but adding the first arrival throws an exception. Repair the collection choice while preserving arrival order.",
+        "runtime", "easy", ["collections", "mutability", "java"],
+        ["Input.initial and input.arrivals are lists of strings, at most 100 entries each.",
+         "Return one list containing all initial entries followed by every arrival in order.",
+         "Keep duplicates and empty strings. Each string has at most 30 characters."],
+        {"java": '''
+            import com.google.gson.*;
+            import java.util.*;
+            public class Solution {
+              public static JsonElement solve(JsonObject data) {
+                String[] initial = new Gson().fromJson(data.get("initial"), String[].class);
+                List<String> roster = Arrays.asList(initial);
+                for (JsonElement arrival : data.getAsJsonArray("arrivals")) roster.add(arrival.getAsString());
+                return new Gson().toJsonTree(roster);
+              }
+            }
+        '''},
+        {"java": '''
+            import com.google.gson.*;
+            import java.util.*;
+            public class Solution {
+              public static JsonElement solve(JsonObject data) {
+                String[] initial = new Gson().fromJson(data.get("initial"), String[].class);
+                List<String> roster = new ArrayList<>(Arrays.asList(initial));
+                for (JsonElement arrival : data.getAsJsonArray("arrivals")) roster.add(arrival.getAsString());
+                return new Gson().toJsonTree(roster);
+              }
+            }
+        '''},
+        [case("No new arrivals", {"initial": ["ana", "bo"], "arrivals": []}, ["ana", "bo"]),
+         case("A new arrival", {"initial": ["ana"], "arrivals": ["bo"]}, ["ana", "bo"]),
+         case("Start empty", {"initial": [], "arrivals": ["a", "b"]}, ["a", "b"], True),
+         case("Both empty", {"initial": [], "arrivals": []}, [], True),
+         case("Keep duplicate entries", {"initial": ["a", "a"], "arrivals": ["a"]}, ["a", "a", "a"], True),
+         case("Keep empty strings", {"initial": [""], "arrivals": ["b", ""]}, ["", "b", ""], True),
+         case("Preserve order", {"initial": ["z", "a"], "arrivals": ["y", "b"]}, ["z", "a", "y", "b"], True)],
+        "Arrays.asList returns a fixed-size list backed by its array. Replacing entries is allowed, but adding entries is not. Copy into an ArrayList before appending arrivals. Time and output space O(n + m).",
+        ["The initial entries load successfully. Which operation first changes the list's size?",
+         "Not every List implementation supports add, even when its entries can be replaced.",
+         "Construct new ArrayList<>(Arrays.asList(initial)) before appending."], 10,
+    ),
+    problem(
+        "go-slice-growth", "Reserved space, missing elements",
+        "A sensor converter reserves enough slice capacity but panics when writing the first doubled reading. Empty batches appear to work, hiding the mistake.",
+        "runtime", "easy", ["slices", "allocation", "go"],
+        ["Input.readings contains at most 200 integers of magnitude at most 10,000.",
+         "Return an array with every reading multiplied by two, preserving order.",
+         "An empty batch must return [], not null."],
+        {"go": '''
+            package main
+            func Solve(data map[string]interface{}) interface{} {
+                readings := data["readings"].([]interface{})
+                result := make([]int, 0, len(readings))
+                for i, reading := range readings { result[i] = 2 * int(reading.(float64)) }
+                return result
+            }
+        '''},
+        {"go": '''
+            package main
+            func Solve(data map[string]interface{}) interface{} {
+                readings := data["readings"].([]interface{})
+                result := make([]int, len(readings))
+                for i, reading := range readings { result[i] = 2 * int(reading.(float64)) }
+                return result
+            }
+        '''},
+        [case("Empty batch", {"readings": []}, []),
+         case("One reading", {"readings": [3]}, [6]),
+         case("Several readings", {"readings": [2, 4, 1]}, [4, 8, 2], True),
+         case("Negative readings", {"readings": [-3, -1]}, [-6, -2], True),
+         case("Zero is retained", {"readings": [0, 2, 0]}, [0, 4, 0], True),
+         case("Mixed signs", {"readings": [-10000, 10000, -1]}, [-20000, 20000, -2], True),
+         case("Maximum batch", {"readings": [1] * 200}, [2] * 200, True)],
+        "Capacity reserves backing storage; length determines valid indices. Allocate a slice whose length equals the input length, or append into a zero-length slice. make with length zero also preserves the required empty JSON array. Time and output space O(n).",
+        ["What are len(result) and cap(result) before the first assignment?",
+         "Indexing is bounded by length, even when backing storage has spare capacity.",
+         "Use make([]int, len(readings)) for indexed writes, or append each result."], 10,
+    ),
+    problem(
+        "bigint-json-total", "The exact total that will not serialize",
+        "A counter service computes large totals exactly with BigInt, then fails while returning JSON. Keep the exact arithmetic and repair the response representation.",
+        "runtime", "medium", ["bigint", "serialization", "precision"],
+        ["Input.values contains at most 100 canonical decimal integer strings of magnitude at most 10^30; no leading plus signs or leading zeros except '0'.",
+         "Return {total: string}, where total is the exact sum as a canonical decimal integer string.",
+         "An empty list returns {total: '0'}. Do not convert values through Number."],
+        {"javascript": '''
+            function solve(data) {
+              let total = 0n;
+              for (const value of data.values) total += BigInt(value);
+              return { total };
+            }
+            module.exports = { solve };
+        '''},
+        {"javascript": '''
+            function solve(data) {
+              let total = 0n;
+              for (const value of data.values) total += BigInt(value);
+              return { total: total.toString() };
+            }
+            module.exports = { solve };
+        '''},
+        [case("Small total", {"values": ["12", "8"]}, {"total": "20"}),
+         case("Beyond exact Number integers", {"values": ["9007199254740992", "1"]}, {"total": "9007199254740993"}),
+         case("Empty sum", {"values": []}, {"total": "0"}, True),
+         case("Negative total", {"values": ["-9", "2"]}, {"total": "-7"}, True),
+         case("Exact cancellation", {"values": ["999999999999999999999999999999", "-999999999999999999999999999999"]}, {"total": "0"}, True),
+         case("Carry into another digit", {"values": ["999999999999999999999999999999", "1"]}, {"total": "1000000000000000000000000000000"}, True),
+         case("Zero and a large negative", {"values": ["0", "-9007199254740993"]}, {"total": "-9007199254740993"}, True)],
+        "JSON.stringify cannot serialize a BigInt directly. Keep BigInt throughout the sum, then convert the final value to a decimal string at the response boundary. Converting to Number first would silently lose integer precision. Time O(n × d), extra space O(d), where d bounds the sum's digits.",
+        ["The addition succeeds. What type is handed to the JSON serializer?",
+         "The response contract asks for a string so large totals remain exact across clients.",
+         "Return {total: total.toString()} after summing with BigInt."], 12,
+    ),
+    problem(
+        "dijkstra-early-visit", "The route marked final too soon",
+        "A routing service locks in a destination as soon as it discovers a path. A cheaper route found moments later is ignored, so the reported shortest distance can be wrong.",
+        "logic", "hard", ["graphs", "shortest-path", "priority-queue"],
+        ["Input.n is 1 through 100. Nodes are integers 0 through n-1. Input.edges contains at most 500 directed [from, to, weight] edges with integer weights 0 through 1,000.",
+         "Parallel edges, self-edges, and cycles are allowed. Input.start and input.target are valid nodes.",
+         "Return the minimum total weight from start to target, or null when unreachable. The distance from a node to itself is zero."],
+        {"python": '''
+            import heapq
+            def solve(data):
+                graph = [[] for _ in range(data["n"])]
+                for source, target, weight in data["edges"]:
+                    graph[source].append((target, weight))
+                pending = [(0, data["start"])]
+                visited = {data["start"]}
+                while pending:
+                    distance, node = heapq.heappop(pending)
+                    if node == data["target"]:
+                        return distance
+                    for neighbor, weight in graph[node]:
+                        if neighbor not in visited:
+                            visited.add(neighbor)
+                            heapq.heappush(pending, (distance + weight, neighbor))
+                return None
+        '''},
+        {"python": '''
+            import heapq
+            def solve(data):
+                graph = [[] for _ in range(data["n"])]
+                for source, target, weight in data["edges"]:
+                    graph[source].append((target, weight))
+                distances = [float("inf")] * data["n"]
+                distances[data["start"]] = 0
+                pending = [(0, data["start"])]
+                while pending:
+                    distance, node = heapq.heappop(pending)
+                    if distance != distances[node]:
+                        continue
+                    if node == data["target"]:
+                        return distance
+                    for neighbor, weight in graph[node]:
+                        candidate = distance + weight
+                        if candidate < distances[neighbor]:
+                            distances[neighbor] = candidate
+                            heapq.heappush(pending, (candidate, neighbor))
+                return None
+        '''},
+        [case("One route", {"n": 2, "edges": [[0, 1, 4]], "start": 0, "target": 1}, 4),
+         case("Cheaper route discovered later", {"n": 3, "edges": [[0, 1, 9], [0, 2, 1], [2, 1, 1]], "start": 0, "target": 1}, 2),
+         case("Unreachable node", {"n": 3, "edges": [[0, 1, 2]], "start": 0, "target": 2}, None, True),
+         case("Already at the target", {"n": 1, "edges": [[0, 0, 7]], "start": 0, "target": 0}, 0, True),
+         case("Parallel edges", {"n": 2, "edges": [[0, 1, 8], [0, 1, 3]], "start": 0, "target": 1}, 3, True),
+         case("Zero-weight cycle", {"n": 3, "edges": [[0, 1, 0], [1, 0, 0], [1, 2, 2], [0, 2, 5]], "start": 0, "target": 2}, 2, True),
+         case("Direction matters", {"n": 2, "edges": [[1, 0, 4]], "start": 0, "target": 1}, None, True),
+         case("Several improvements", {"n": 4, "edges": [[0, 1, 10], [0, 2, 2], [2, 1, 1], [1, 3, 2], [2, 3, 20]], "start": 0, "target": 3}, 5, True)],
+        "Discovery does not finalize a weighted shortest path. Track the best known distance, enqueue every strict improvement, and discard stale heap entries. With nonnegative edges, a current minimum-distance entry for the target is final. Time O(V + E log(E + 1)), space O(V + E).",
+        ["Can a node's first discovered path be more expensive than a path through another pending node?",
+         "Keep a tentative distance and allow it to improve before the node is removed from the priority queue.",
+         "Relax an edge only when distance + weight improves its target; skip heap entries whose distance is stale."], 30,
+    ),
+    problem(
+        "longest-window-rewind", "The window that moves backward",
+        "A text analyzer finds the longest substring without repeated characters. Its left boundary sometimes moves backward, bringing an old duplicate into a supposedly unique window.",
+        "logic", "medium", ["sliding-window", "strings", "invariants"],
+        ["Input.text contains at most 500 printable ASCII characters. Comparisons are case-sensitive and spaces count as characters.",
+         "Return the length of the longest contiguous substring whose characters are all distinct.",
+         "Return 0 for an empty string."],
+        {"python": '''
+            def solve(data):
+                last = {}
+                left = best = 0
+                for right, char in enumerate(data["text"]):
+                    if char in last:
+                        left = last[char] + 1
+                    last[char] = right
+                    best = max(best, right - left + 1)
+                return best
+        ''', "javascript": '''
+            function solve(data) {
+              const last = new Map();
+              let left = 0, best = 0;
+              for (let right = 0; right < data.text.length; right++) {
+                const char = data.text[right];
+                if (last.has(char)) left = last.get(char) + 1;
+                last.set(char, right);
+                best = Math.max(best, right - left + 1);
+              }
+              return best;
+            }
+            module.exports = { solve };
+        '''},
+        {"python": '''
+            def solve(data):
+                last = {}
+                left = best = 0
+                for right, char in enumerate(data["text"]):
+                    if char in last:
+                        left = max(left, last[char] + 1)
+                    last[char] = right
+                    best = max(best, right - left + 1)
+                return best
+        ''', "javascript": '''
+            function solve(data) {
+              const last = new Map();
+              let left = 0, best = 0;
+              for (let right = 0; right < data.text.length; right++) {
+                const char = data.text[right];
+                if (last.has(char)) left = Math.max(left, last.get(char) + 1);
+                last.set(char, right);
+                best = Math.max(best, right - left + 1);
+              }
+              return best;
+            }
+            module.exports = { solve };
+        '''},
+        [case("Repeated prefix", {"text": "abcabcbb"}, 3),
+         case("Old occurrence outside the window", {"text": "abba"}, 2),
+         case("Empty text", {"text": ""}, 0, True),
+         case("One repeated character", {"text": "aaaa"}, 1, True),
+         case("Late stale occurrence", {"text": "tmmzuxt"}, 5, True),
+         case("Overlapping windows", {"text": "dvdf"}, 3, True),
+         case("Spaces and case", {"text": "a A!a"}, 4, True),
+         case("All unique", {"text": "abcde"}, 5, True)],
+        "The left boundary is monotonic. A prior occurrence only constrains the current window if it lies inside that window, so take the maximum of the existing boundary and the position after the prior occurrence. Time O(n), extra space O(alphabet size).",
+        ["Trace both occurrences of 'a' in 'abba'. Where is the left boundary after the second 'b'?",
+         "An occurrence before the current left boundary cannot introduce a duplicate into this window.",
+         "Update left with max(left, last[char] + 1), then measure the window."], 18,
+    ),
+    problem(
+        "product-except-self-update", "The product includes itself",
+        "A statistics helper uses prefix and suffix products to exclude each position, but updates its prefix too early. Every result accidentally includes the value it was meant to omit.",
+        "logic", "medium", ["prefix-products", "arrays", "update-order"],
+        ["Input.nums has at most 10 integers, each between -5 and 5.",
+         "Return an array where position i is the product of all values except nums[i]. Do not use division.",
+         "An empty input returns []; a single value returns [1]. Zeros and negative values are valid."],
+        {"cpp": '''
+            #include <nlohmann/json.hpp>
+            #include <vector>
+            using nlohmann::json;
+            json solve(const json& data) {
+              auto nums = data.at("nums").get<std::vector<long long>>();
+              int n = static_cast<int>(nums.size());
+              std::vector<long long> result(n, 1);
+              long long prefix = 1, suffix = 1;
+              for (int i = 0; i < n; ++i) {
+                prefix *= nums[i];
+                result[i] = prefix;
+              }
+              for (int i = n - 1; i >= 0; --i) {
+                result[i] *= suffix;
+                suffix *= nums[i];
+              }
+              return result;
+            }
+        '''},
+        {"cpp": '''
+            #include <nlohmann/json.hpp>
+            #include <vector>
+            using nlohmann::json;
+            json solve(const json& data) {
+              auto nums = data.at("nums").get<std::vector<long long>>();
+              int n = static_cast<int>(nums.size());
+              std::vector<long long> result(n, 1);
+              long long prefix = 1, suffix = 1;
+              for (int i = 0; i < n; ++i) {
+                result[i] = prefix;
+                prefix *= nums[i];
+              }
+              for (int i = n - 1; i >= 0; --i) {
+                result[i] *= suffix;
+                suffix *= nums[i];
+              }
+              return result;
+            }
+        '''},
+        [case("Unit values", {"nums": [1, 1, 1]}, [1, 1, 1]),
+         case("Exclude each value", {"nums": [2, 3, 4]}, [12, 8, 6]),
+         case("One zero", {"nums": [2, 0, 3]}, [0, 6, 0], True),
+         case("Two zeros", {"nums": [0, 4, 0]}, [0, 0, 0], True),
+         case("Negative values", {"nums": [-2, 3, -4]}, [-12, 8, -6], True),
+         case("Single value", {"nums": [5]}, [1], True),
+         case("Empty input", {"nums": []}, [], True),
+         case("Largest product", {"nums": [5] * 10}, [1953125] * 10, True)],
+        "Before visiting i, prefix must contain only values strictly before i. Store it before multiplying by nums[i], then apply a suffix containing only values strictly after i. This handles zeros without division. Time O(n), extra space O(1) beyond the output and input copy.",
+        ["What exactly should prefix contain when assigned to result[i]?",
+         "The suffix pass stores its contribution before consuming the current value. Compare the prefix pass.",
+         "Assign result[i] = prefix before prefix *= nums[i]."], 18,
+    ),
+    problem(
+        "run-length-final-flush", "The last run goes missing",
+        "A compact event log emits a run whenever its letter changes. The final run disappears because no next letter arrives to trigger the flush.",
+        "logic", "easy", ["strings", "compression", "streaming"],
+        ["Input.text contains at most 500 uppercase ASCII letters A through Z.",
+         "Return an array of {char: string, count: integer} for each maximal adjacent run, preserving order.",
+         "Separate runs of the same letter must stay separate. Empty text returns []."],
+        {"go": '''
+            package main
+            func Solve(data map[string]interface{}) interface{} {
+                text := data["text"].(string)
+                result := make([]map[string]interface{}, 0)
+                count := 0
+                for i := 0; i < len(text); i++ {
+                    if i > 0 && text[i] != text[i-1] {
+                        result = append(result, map[string]interface{}{"char": string(text[i-1]), "count": count})
+                        count = 0
+                    }
+                    count++
+                }
+                return result
+            }
+        '''},
+        {"go": '''
+            package main
+            func Solve(data map[string]interface{}) interface{} {
+                text := data["text"].(string)
+                result := make([]map[string]interface{}, 0)
+                count := 0
+                for i := 0; i < len(text); i++ {
+                    if i > 0 && text[i] != text[i-1] {
+                        result = append(result, map[string]interface{}{"char": string(text[i-1]), "count": count})
+                        count = 0
+                    }
+                    count++
+                }
+                if count > 0 {
+                    result = append(result, map[string]interface{}{"char": string(text[len(text)-1]), "count": count})
+                }
+                return result
+            }
+        '''},
+        [case("Empty log", {"text": ""}, []),
+         case("Several runs", {"text": "AAABCC"}, [{"char": "A", "count": 3}, {"char": "B", "count": 1}, {"char": "C", "count": 2}]),
+         case("One letter", {"text": "Z"}, [{"char": "Z", "count": 1}], True),
+         case("One long run", {"text": "B" * 500}, [{"char": "B", "count": 500}], True),
+         case("Letter returns later", {"text": "ABA"}, [{"char": "A", "count": 1}, {"char": "B", "count": 1}, {"char": "A", "count": 1}], True),
+         case("Single final letter", {"text": "AAB"}, [{"char": "A", "count": 2}, {"char": "B", "count": 1}], True),
+         case("Two equal runs", {"text": "XXYY"}, [{"char": "X", "count": 2}, {"char": "Y", "count": 2}], True)],
+        "A change of letter flushes the preceding run, but end-of-input is also a boundary. Append the pending run after the loop when count is positive; that guard keeps empty input safe. Time O(n), output space O(number of runs).",
+        ["What event flushes a run when the input never changes letter?",
+         "The last run is still pending when iteration ends.",
+         "After the loop, append the final letter and count only when count > 0."], 10,
+    ),
+    problem(
+        "literal-search-offset", "The match at position zero",
+        "A search badge hides matches at the beginning of a title and lights up when the text is absent. A position is being mistaken for a boolean.",
+        "edge", "easy", ["strings", "truthiness", "sentinels"],
+        ["Input.text and input.query are ASCII strings of at most 200 characters.",
+         "Return true if query occurs as a contiguous substring of text, otherwise false. Matching is case-sensitive.",
+         "An empty query is always present, including in empty text."],
+        {"javascript": '''
+            function solve(data) {
+              return Boolean(data.text.indexOf(data.query));
+            }
+            module.exports = { solve };
+        '''},
+        {"javascript": '''
+            function solve(data) {
+              return data.text.indexOf(data.query) !== -1;
+            }
+            module.exports = { solve };
+        '''},
+        [case("Match in the middle", {"text": "debugging", "query": "bug"}, True),
+         case("Match at the beginning", {"text": "debugging", "query": "debug"}, True),
+         case("No match", {"text": "debugging", "query": "patch"}, False, True),
+         case("Empty query", {"text": "abc", "query": ""}, True, True),
+         case("Both empty", {"text": "", "query": ""}, True, True),
+         case("Query longer than text", {"text": "a", "query": "ab"}, False, True),
+         case("Case-sensitive search", {"text": "Bug", "query": "bug"}, False, True),
+         case("Match at the end", {"text": "abc", "query": "c"}, True, True)],
+        "indexOf returns zero for a match at the start and -1 for absence. Zero is falsy while -1 is truthy, so boolean coercion reverses these important cases. Compare with -1 explicitly or use includes. Worst-case time O(n × m) for a direct substring search, extra space O(1).",
+        ["What numeric value represents a match at the first character?",
+         "The missing-value sentinel is -1, and -1 is truthy in JavaScript.",
+         "Return indexOf(query) !== -1, or use text.includes(query)."], 8,
+    ),
+    problem(
+        "timestamp-offset-order", "The timeline sorted by local clocks",
+        "A global incident feed sorts timestamp strings. Events with different UTC offsets appear out of order even though every timestamp is valid.",
+        "edge", "medium", ["timestamps", "time-zones", "sorting"],
+        ["Input.events contains at most 100 objects with unique string id values and a timestamp.",
+         "Timestamps are valid Gregorian dates in years 2000 through 2099, formatted YYYY-MM-DDTHH:MM:SS followed by Z or an explicit offset ±HH:MM of magnitude at most 14 hours. There are no fractional seconds or leap seconds.",
+         "Return event IDs from earliest to latest actual instant. Preserve input order for timestamps representing the same instant.",
+         "An empty event list returns []."],
+        {"python": '''
+            def solve(data):
+                events = sorted(data["events"], key=lambda event: event["timestamp"])
+                return [event["id"] for event in events]
+        '''},
+        {"python": '''
+            from datetime import datetime
+            def solve(data):
+                events = sorted(data["events"], key=lambda event: datetime.fromisoformat(event["timestamp"]))
+                return [event["id"] for event in events]
+        '''},
+        [case("Same offset", {"events": [{"id": "b", "timestamp": "2026-01-01T09:00:00Z"}, {"id": "a", "timestamp": "2026-01-01T08:00:00Z"}]}, ["a", "b"]),
+         case("Different local clocks", {"events": [{"id": "a", "timestamp": "2026-01-01T08:00:00+02:00"}, {"id": "b", "timestamp": "2026-01-01T07:30:00Z"}]}, ["a", "b"]),
+         case("Crossing midnight", {"events": [{"id": "later", "timestamp": "2026-01-01T23:30:00-02:00"}, {"id": "earlier", "timestamp": "2026-01-02T00:30:00Z"}]}, ["earlier", "later"], True),
+         case("Equal instants stay stable", {"events": [{"id": "z", "timestamp": "2026-02-01T10:00:00+02:00"}, {"id": "a", "timestamp": "2026-02-01T08:00:00Z"}, {"id": "m", "timestamp": "2026-02-01T03:00:00-05:00"}]}, ["z", "a", "m"], True),
+         case("Half-hour offset", {"events": [{"id": "x", "timestamp": "2026-01-01T12:00:00+05:30"}, {"id": "y", "timestamp": "2026-01-01T07:00:00Z"}]}, ["x", "y"], True),
+         case("Negative offset", {"events": [{"id": "x", "timestamp": "2026-01-01T00:00:00-03:00"}, {"id": "y", "timestamp": "2026-01-01T01:00:00Z"}]}, ["y", "x"], True),
+         case("One event", {"events": [{"id": "only", "timestamp": "2000-01-01T00:00:00+14:00"}]}, ["only"], True),
+         case("No events", {"events": []}, [], True)],
+        "A timestamp's wall-clock fields cannot be compared independently of its offset. Parse each value as an aware datetime and use Python's stable sort to compare actual instants while keeping equal instants in input order. Time O(n log n), extra space O(n).",
+        ["Does 08:00 at UTC+02 occur before or after 07:30 UTC?",
+         "The offset is part of the value, not a suffix that can be ignored during sorting.",
+         "Sort by datetime.fromisoformat(timestamp); keep the stable input order for equal keys."], 18,
+    ),
+    problem(
+        "escaped-delimiter-fields", "The separator inside the field",
+        "A log importer splits on every pipe, including escaped pipes that belong inside a field. Repair the parser without dropping empty fields or literal backslashes.",
+        "edge", "medium", ["parsing", "escaping", "state-machine"],
+        ["Input.text is an ASCII string of at most 500 characters. An unescaped | separates fields.",
+         "A backslash escapes exactly the next character, removing that backslash and keeping the next character literally, even when it is a pipe or another backslash.",
+         "A final backslash with no following character is kept literally. Preserve all empty fields and whitespace.",
+         "Return the array of decoded fields. Empty text contains one empty field."],
+        {"java": r'''
+            import com.google.gson.*;
+            public class Solution {
+              public static JsonElement solve(JsonObject data) {
+                return new Gson().toJsonTree(data.get("text").getAsString().split("\\|", -1));
+              }
+            }
+        '''},
+        {"java": r'''
+            import com.google.gson.*;
+            public class Solution {
+              public static JsonElement solve(JsonObject data) {
+                String text = data.get("text").getAsString();
+                JsonArray fields = new JsonArray();
+                StringBuilder field = new StringBuilder();
+                for (int i = 0; i < text.length(); i++) {
+                  char ch = text.charAt(i);
+                  if (ch == '\\' && i + 1 < text.length()) {
+                    field.append(text.charAt(++i));
+                  } else if (ch == '|') {
+                    fields.add(field.toString());
+                    field.setLength(0);
+                  } else {
+                    field.append(ch);
+                  }
+                }
+                fields.add(field.toString());
+                return fields;
+              }
+            }
+        '''},
+        [case("Plain fields", {"text": "a|b|"}, ["a", "b", ""]),
+         case("Escaped pipe", {"text": r"a\|b|c"}, ["a|b", "c"]),
+         case("Escaped backslash before separator", {"text": r"a\\|b"}, ["a\\", "b"], True),
+         case("Trailing backslash", {"text": "a|b\\"}, ["a", "b\\"], True),
+         case("Empty fields", {"text": "||"}, ["", "", ""], True),
+         case("Empty text", {"text": ""}, [""], True),
+         case("Escape an ordinary character", {"text": r"\a|\z"}, ["a", "z"], True),
+         case("Whitespace is data", {"text": r" a | \| "}, [" a ", " | "], True),
+         case("Backslash then escaped pipe", {"text": r"\\\|"}, ["\\|"], True)],
+        "Scan left to right and consume an escaped character together with its backslash. Only a pipe encountered outside an escape ends a field. Append the pending field at end-of-input even when empty, and retain a trailing unpaired backslash. Time and output space O(n).",
+        ["Can a plain split distinguish a separator from a literal pipe?",
+         "After a backslash, consume the next character as data before checking for separators.",
+         "Scan once: consume escapes, flush on an unescaped pipe, and always append the final field."], 22,
+    ),
+    problem(
+        "ipv4-leading-zero", "The address with an ambiguous octet",
+        "A strict IPv4 form accepts octets with leading zeros because it validates only their numeric values. Repair validation so each accepted address has the required decimal spelling.",
+        "edge", "medium", ["validation", "parsing", "network-addresses"],
+        ["Input.address is a string of at most 30 characters. Return a boolean.",
+         "Accept exactly four dot-separated octets. Each octet must contain only ASCII digits and have a decimal value from 0 through 255.",
+         "An octet is either '0' or begins with 1 through 9. Leading zeros, signs, whitespace, and empty octets are invalid.",
+         "This is a strict dotted-decimal exercise; do not accept alternative address representations."],
+        {"python": '''
+            def solve(data):
+                parts = data["address"].split(".")
+                return len(parts) == 4 and all(
+                    part and all("0" <= char <= "9" for char in part) and int(part) <= 255
+                    for part in parts
+                )
+        '''},
+        {"python": '''
+            def solve(data):
+                parts = data["address"].split(".")
+                return len(parts) == 4 and all(
+                    1 <= len(part) <= 3
+                    and all("0" <= char <= "9" for char in part)
+                    and (len(part) == 1 or part[0] != "0")
+                    and int(part) <= 255
+                    for part in parts
+                )
+        '''},
+        [case("Ordinary address", {"address": "192.168.1.1"}, True),
+         case("Leading zero", {"address": "01.2.3.4"}, False),
+         case("All zeros", {"address": "0.0.0.0"}, True, True),
+         case("Largest octets", {"address": "255.255.255.255"}, True, True),
+         case("Out of range", {"address": "256.1.2.3"}, False, True),
+         case("Empty octet", {"address": "1..2.3"}, False, True),
+         case("Too few octets", {"address": "1.2.3"}, False, True),
+         case("Too many octets", {"address": "1.2.3.4.5"}, False, True),
+         case("Signed octet", {"address": "+1.2.3.4"}, False, True),
+         case("Whitespace", {"address": "1.2.3.4 "}, False, True),
+         case("Non-ASCII digit", {"address": "١.2.3.4"}, False, True),
+         case("Zero padding", {"address": "000.0.0.0"}, False, True),
+         case("Empty address", {"address": ""}, False, True)],
+        "Numeric conversion loses the spelling that distinguishes '1' from '01'. Validate each octet's length, ASCII characters, and leading-zero rule before converting it for the range check. Time O(n), space O(n) for the split fields.",
+        ["What information is lost when an octet is converted to an integer?",
+         "Zero is valid by itself, but a longer octet must not begin with zero.",
+         "Require one to three ASCII digits, reject leading zeros in multi-character octets, then check the value is at most 255."], 16,
+    ),
+    problem(
+        "transfer-fee-affordability", "Enough for the transfer, short on the fee",
+        "A wallet checks that the transfer amount is affordable but forgets its fixed fee. An accepted transfer can leave the wallet with a negative balance.",
+        "business", "medium", ["wallets", "validation", "state"],
+        ["Input.balance and input.fee are nonnegative integer units, at most 100,000. Input.amounts contains at most 100 integer transfer requests of magnitude at most 100,000.",
+         "Process requests in order. Accept only a positive amount for which balance covers amount + fee. An accepted request debits both, adding amount to sent and fee to fees.",
+         "Rejected requests have no effect. Return {accepted: boolean[], state: {balance, sent, fees}}, with sent and fees initially zero."],
+        {"python": '''
+            def solve(data):
+                balance, sent, fees = data["balance"], 0, 0
+                accepted = []
+                for amount in data["amounts"]:
+                    ok = amount > 0 and balance >= amount
+                    if ok:
+                        balance -= amount + data["fee"]
+                        sent += amount
+                        fees += data["fee"]
+                    accepted.append(ok)
+                return {"accepted": accepted, "state": {"balance": balance, "sent": sent, "fees": fees}}
+        '''},
+        {"python": '''
+            def solve(data):
+                balance, sent, fees = data["balance"], 0, 0
+                accepted = []
+                for amount in data["amounts"]:
+                    ok = amount > 0 and balance >= amount + data["fee"]
+                    if ok:
+                        balance -= amount + data["fee"]
+                        sent += amount
+                        fees += data["fee"]
+                    accepted.append(ok)
+                return {"accepted": accepted, "state": {"balance": balance, "sent": sent, "fees": fees}}
+        '''},
+        [case("Both transfers affordable", {"balance": 100, "fee": 5, "amounts": [20, 30]}, {"accepted": [True, True], "state": {"balance": 40, "sent": 50, "fees": 10}}),
+         case("Fee makes the second transfer unaffordable", {"balance": 100, "fee": 10, "amounts": [40, 50]}, {"accepted": [True, False], "state": {"balance": 50, "sent": 40, "fees": 10}}, assertions=[{"path": "state.balance", "equals": 50}]),
+         case("Exact balance", {"balance": 100, "fee": 10, "amounts": [90]}, {"accepted": [True], "state": {"balance": 0, "sent": 90, "fees": 10}}, True),
+         case("Invalid amounts do not charge fees", {"balance": 100, "fee": 5, "amounts": [0, -10, 20]}, {"accepted": [False, False, True], "state": {"balance": 75, "sent": 20, "fees": 5}}, True),
+         case("No fee", {"balance": 100, "fee": 0, "amounts": [100, 1]}, {"accepted": [True, False], "state": {"balance": 0, "sent": 100, "fees": 0}}, True),
+         case("Rejection preserves funds", {"balance": 50, "fee": 2, "amounts": [1000, 10]}, {"accepted": [False, True], "state": {"balance": 38, "sent": 10, "fees": 2}}, True),
+         case("No transfers", {"balance": 5, "fee": 10, "amounts": []}, {"accepted": [], "state": {"balance": 5, "sent": 0, "fees": 0}}, True),
+         case("Empty wallet", {"balance": 0, "fee": 0, "amounts": [1]}, {"accepted": [False], "state": {"balance": 0, "sent": 0, "fees": 0}}, True)],
+        "The affordability check must cover the full debit, including the fee. Validate the amount and total cost before mutating any ledger field so a rejection preserves all state. The final balance plus sent plus fees equals the initial balance. Time O(n), output space O(n), bookkeeping space O(1).",
+        ["Which values are subtracted after acceptance, and which were checked beforehand?",
+         "A transfer can cover the amount while still being unable to cover amount plus fee.",
+         "Require amount > 0 and balance >= amount + fee before changing balance, sent, or fees."], 16,
+    ),
+    problem(
+        "review-revision-reset", "Approval for yesterday's document",
+        "A publishing workflow keeps approvals after a document is edited. A new revision can be published using reviews that only covered old content.",
+        "business", "hard", ["approvals", "versioning", "state-machine"],
+        ["Input.quorum is 1 through 5. Start at revision 1 with no approvals and no published revision.",
+         "Process at most 200 input.events. An {op: 'edit'} increments revision and clears all approvals. An {op: 'approve', reviewer: string} adds that reviewer once to the current revision.",
+         "An {op: 'publish'} publishes the current revision only if at least quorum distinct reviewers approved it and it has not already been published. Failed publications have no effect.",
+         "Editing does not remove the previous publication. Return {published: integer[], state: {revision, approvals, published_revision}}. List successful publication revisions in order, sort the current reviewer IDs lexicographically, and use null when nothing has been published. IDs contain lowercase ASCII letters."],
+        {"python": '''
+            def solve(data):
+                revision, published_revision = 1, None
+                approvals, published = set(), []
+                for event in data["events"]:
+                    if event["op"] == "edit":
+                        revision += 1
+                    elif event["op"] == "approve":
+                        approvals.add(event["reviewer"])
+                    elif len(approvals) >= data["quorum"] and published_revision != revision:
+                        published_revision = revision
+                        published.append(revision)
+                return {"published": published, "state": {"revision": revision,
+                        "approvals": sorted(approvals), "published_revision": published_revision}}
+        '''},
+        {"python": '''
+            def solve(data):
+                revision, published_revision = 1, None
+                approvals, published = set(), []
+                for event in data["events"]:
+                    if event["op"] == "edit":
+                        revision += 1
+                        approvals.clear()
+                    elif event["op"] == "approve":
+                        approvals.add(event["reviewer"])
+                    elif len(approvals) >= data["quorum"] and published_revision != revision:
+                        published_revision = revision
+                        published.append(revision)
+                return {"published": published, "state": {"revision": revision,
+                        "approvals": sorted(approvals), "published_revision": published_revision}}
+        '''},
+        [case("Approved revision", {"quorum": 2, "events": [{"op": "approve", "reviewer": "b"}, {"op": "approve", "reviewer": "a"}, {"op": "publish"}]}, {"published": [1], "state": {"revision": 1, "approvals": ["a", "b"], "published_revision": 1}}),
+         case("Reviews cannot cross revisions", {"quorum": 2, "events": [{"op": "approve", "reviewer": "a"}, {"op": "edit"}, {"op": "approve", "reviewer": "b"}, {"op": "publish"}]}, {"published": [], "state": {"revision": 2, "approvals": ["b"], "published_revision": None}}, assertions=[{"path": "state.approvals", "equals": ["b"]}]),
+         case("Duplicate approval is one vote", {"quorum": 2, "events": [{"op": "approve", "reviewer": "a"}, {"op": "approve", "reviewer": "a"}, {"op": "publish"}]}, {"published": [], "state": {"revision": 1, "approvals": ["a"], "published_revision": None}}, True),
+         case("Publish each revision once", {"quorum": 1, "events": [{"op": "approve", "reviewer": "a"}, {"op": "publish"}, {"op": "publish"}]}, {"published": [1], "state": {"revision": 1, "approvals": ["a"], "published_revision": 1}}, True),
+         case("Edit keeps the last publication", {"quorum": 1, "events": [{"op": "approve", "reviewer": "a"}, {"op": "publish"}, {"op": "edit"}, {"op": "publish"}]}, {"published": [1], "state": {"revision": 2, "approvals": [], "published_revision": 1}}, True),
+         case("Fresh review can publish again", {"quorum": 1, "events": [{"op": "approve", "reviewer": "a"}, {"op": "publish"}, {"op": "edit"}, {"op": "approve", "reviewer": "a"}, {"op": "publish"}]}, {"published": [1, 2], "state": {"revision": 2, "approvals": ["a"], "published_revision": 2}}, True),
+         case("Multiple edits", {"quorum": 1, "events": [{"op": "approve", "reviewer": "a"}, {"op": "edit"}, {"op": "edit"}]}, {"published": [], "state": {"revision": 3, "approvals": [], "published_revision": None}}, True),
+         case("No events", {"quorum": 1, "events": []}, {"published": [], "state": {"revision": 1, "approvals": [], "published_revision": None}}, True)],
+        "An approval belongs to a particular revision. Clear the current approval set on every edit while retaining the last published revision. A set prevents duplicate votes, and recording the published revision prevents duplicate publication. Time O(events + reviewers log reviewers), space O(events + reviewers), treating bounded IDs as constant size.",
+        ["What content did an approval cover before an edit?",
+         "Separate the last published revision from approvals for the current draft.",
+         "On edit, increment revision and clear approvals; keep published_revision unchanged until a fresh quorum publishes."], 25,
+    ),
+    problem(
+        "partial-backorder-fulfillment", "The small order jumps the queue",
+        "A warehouse skips an order it cannot fill completely and uses the remaining stock for later orders. Its policy actually requires partial fulfillment in arrival order.",
+        "business", "medium", ["inventory", "fifo", "allocation"],
+        ["Input.stock is a nonnegative integer at most 1,000,000. Input.orders contains at most 100 orders in arrival order with unique string id values and integer quantity from 1 through 10,000.",
+         "Allocate as much stock as possible to each order before considering the next. A partially filled order consumes all remaining stock.",
+         "Return {allocations: [{id, quantity}], state: {stock}}. Include every order in its original order, including allocations of zero. Never allocate more than requested or more than available."],
+        {"cpp": '''
+            #include <nlohmann/json.hpp>
+            using nlohmann::json;
+            json solve(const json& data) {
+              int stock = data.at("stock").get<int>();
+              json allocations = json::array();
+              for (const auto& order : data.at("orders")) {
+                int requested = order.at("quantity").get<int>();
+                int allocated = stock >= requested ? requested : 0;
+                stock -= allocated;
+                allocations.push_back({{"id", order.at("id")}, {"quantity", allocated}});
+              }
+              return {{"allocations", allocations}, {"state", {{"stock", stock}}}};
+            }
+        '''},
+        {"cpp": '''
+            #include <nlohmann/json.hpp>
+            #include <algorithm>
+            using nlohmann::json;
+            json solve(const json& data) {
+              int stock = data.at("stock").get<int>();
+              json allocations = json::array();
+              for (const auto& order : data.at("orders")) {
+                int requested = order.at("quantity").get<int>();
+                int allocated = std::min(stock, requested);
+                stock -= allocated;
+                allocations.push_back({{"id", order.at("id")}, {"quantity", allocated}});
+              }
+              return {{"allocations", allocations}, {"state", {{"stock", stock}}}};
+            }
+        '''},
+        [case("Enough for everyone", {"stock": 8, "orders": [{"id": "a", "quantity": 3}, {"id": "b", "quantity": 2}]}, {"allocations": [{"id": "a", "quantity": 3}, {"id": "b", "quantity": 2}], "state": {"stock": 3}}),
+         case("Partial order before a smaller order", {"stock": 4, "orders": [{"id": "a", "quantity": 6}, {"id": "b", "quantity": 2}]}, {"allocations": [{"id": "a", "quantity": 4}, {"id": "b", "quantity": 0}], "state": {"stock": 0}}, assertions=[{"path": "allocations.0.quantity", "equals": 4}]),
+         case("Stock runs out midway", {"stock": 5, "orders": [{"id": "a", "quantity": 3}, {"id": "b", "quantity": 4}, {"id": "c", "quantity": 1}]}, {"allocations": [{"id": "a", "quantity": 3}, {"id": "b", "quantity": 2}, {"id": "c", "quantity": 0}], "state": {"stock": 0}}, True),
+         case("No stock", {"stock": 0, "orders": [{"id": "a", "quantity": 2}]}, {"allocations": [{"id": "a", "quantity": 0}], "state": {"stock": 0}}, True),
+         case("No orders", {"stock": 7, "orders": []}, {"allocations": [], "state": {"stock": 7}}, True),
+         case("Exact stock", {"stock": 3, "orders": [{"id": "z", "quantity": 3}, {"id": "a", "quantity": 1}]}, {"allocations": [{"id": "z", "quantity": 3}, {"id": "a", "quantity": 0}], "state": {"stock": 0}}, True),
+         case("Large excess stock", {"stock": 1000000, "orders": [{"id": "a", "quantity": 10000}]}, {"allocations": [{"id": "a", "quantity": 10000}], "state": {"stock": 990000}}, True)],
+        "FIFO partial fulfillment means the earlier order receives min(remaining stock, requested quantity), even when it cannot be completed. Decrement stock immediately and retain zero allocations for later orders. This preserves both priority and stock conservation. Time O(n), output space O(n).",
+        ["Does insufficient stock mean an earlier order should receive nothing?",
+         "A partial allocation must happen before the next order is considered.",
+         "Allocate min(stock, requested), deduct it, and include the order even when that allocation is zero."], 18,
+    ),
+    problem(
+        "coupon-use-after-rejection", "The coupon spent on an ineligible cart",
+        "A limited-use promotion spends one redemption whenever it is attempted. An ineligible cart can exhaust the coupon before a qualifying cart reaches checkout.",
+        "business", "medium", ["coupons", "eligibility", "state"],
+        ["Input.uses is a nonnegative integer at most 100. Input.minimum and input.discount are nonnegative integer units at most 10,000.",
+         "Input.subtotals contains at most 100 nonnegative integer cart totals at most 10,000. Process them in order.",
+         "Apply the coupon only if uses remain and subtotal >= minimum. Successful use consumes exactly one redemption and charges max(0, subtotal - discount); otherwise charge the original subtotal and consume nothing.",
+         "A qualifying use still counts when discount is zero. Return {totals: integer[], applied: boolean[], state: {uses_left}}."],
+        {"python": '''
+            def solve(data):
+                remaining = data["uses"]
+                totals, applied = [], []
+                for subtotal in data["subtotals"]:
+                    ok = False
+                    if remaining > 0:
+                        remaining -= 1
+                        ok = subtotal >= data["minimum"]
+                    totals.append(max(0, subtotal - data["discount"]) if ok else subtotal)
+                    applied.append(ok)
+                return {"totals": totals, "applied": applied, "state": {"uses_left": remaining}}
+        ''', "javascript": '''
+            function solve(data) {
+              let remaining = data.uses;
+              const totals = [], applied = [];
+              for (const subtotal of data.subtotals) {
+                let ok = false;
+                if (remaining > 0) {
+                  remaining--;
+                  ok = subtotal >= data.minimum;
+                }
+                totals.push(ok ? Math.max(0, subtotal - data.discount) : subtotal);
+                applied.push(ok);
+              }
+              return { totals, applied, state: { uses_left: remaining } };
+            }
+            module.exports = { solve };
+        '''},
+        {"python": '''
+            def solve(data):
+                remaining = data["uses"]
+                totals, applied = [], []
+                for subtotal in data["subtotals"]:
+                    ok = remaining > 0 and subtotal >= data["minimum"]
+                    if ok:
+                        remaining -= 1
+                    totals.append(max(0, subtotal - data["discount"]) if ok else subtotal)
+                    applied.append(ok)
+                return {"totals": totals, "applied": applied, "state": {"uses_left": remaining}}
+        ''', "javascript": '''
+            function solve(data) {
+              let remaining = data.uses;
+              const totals = [], applied = [];
+              for (const subtotal of data.subtotals) {
+                const ok = remaining > 0 && subtotal >= data.minimum;
+                if (ok) remaining--;
+                totals.push(ok ? Math.max(0, subtotal - data.discount) : subtotal);
+                applied.push(ok);
+              }
+              return { totals, applied, state: { uses_left: remaining } };
+            }
+            module.exports = { solve };
+        '''},
+        [case("Qualifying carts", {"uses": 2, "minimum": 100, "discount": 20, "subtotals": [100, 200]}, {"totals": [80, 180], "applied": [True, True], "state": {"uses_left": 0}}),
+         case("Rejected cart before an eligible one", {"uses": 1, "minimum": 100, "discount": 20, "subtotals": [50, 100]}, {"totals": [50, 80], "applied": [False, True], "state": {"uses_left": 0}}),
+         case("All carts rejected", {"uses": 2, "minimum": 100, "discount": 20, "subtotals": [0, 99]}, {"totals": [0, 99], "applied": [False, False], "state": {"uses_left": 2}}, True, [{"path": "state.uses_left", "equals": 2}]),
+         case("Coupon exhausted", {"uses": 1, "minimum": 100, "discount": 20, "subtotals": [100, 200]}, {"totals": [80, 200], "applied": [True, False], "state": {"uses_left": 0}}, True),
+         case("No redemptions available", {"uses": 0, "minimum": 0, "discount": 20, "subtotals": [10]}, {"totals": [10], "applied": [False], "state": {"uses_left": 0}}, True),
+         case("Discount is capped at the subtotal", {"uses": 1, "minimum": 0, "discount": 20, "subtotals": [5]}, {"totals": [0], "applied": [True], "state": {"uses_left": 0}}, True),
+         case("Zero discount still consumes a use", {"uses": 1, "minimum": 0, "discount": 0, "subtotals": [0, 1]}, {"totals": [0, 1], "applied": [True, False], "state": {"uses_left": 0}}, True),
+         case("No carts", {"uses": 3, "minimum": 5, "discount": 2, "subtotals": []}, {"totals": [], "applied": [], "state": {"uses_left": 3}}, True)],
+        "Check all eligibility conditions before consuming a redemption. Commit the discount and decrement together only for an eligible cart; a rejected attempt leaves the counter unchanged. Eligibility is independent of whether the numeric discount changes the total. Time O(n), output space O(n), bookkeeping space O(1).",
+        ["Which event should spend a redemption: an attempted coupon or an accepted one?",
+         "Check both remaining uses and the minimum subtotal before changing the counter.",
+         "Compute eligibility first; decrement remaining only when eligibility is true."], 18,
+    ),
+    problem(
+        "cache-write-invalidation", "The cache remembers an old value",
+        "A cache-aside simulation serves repeated reads efficiently, but writes and deletes leave cached entries untouched. Even a previously missing key stays missing after it is created.",
+        "system_design", "medium", ["caching", "consistency", "invalidation"],
+        ["Input.store maps arbitrary ASCII string keys to integers of magnitude at most 10,000. The cache starts empty.",
+         "Process at most 200 events in order: {op: 'get', key}, {op: 'put', key, value}, or {op: 'delete', key}. Put values are integers with the same bound.",
+         "A get reads from cache when the key is present; otherwise read the store and cache the result, using null for an absent key. A put changes the store and invalidates that key in cache. A delete removes the store entry if present and invalidates that key.",
+         "Return {reads: (integer or null)[], state: {store, cache}}. Only get events append to reads. Preserve unrelated cached entries. This is a sequential simulation with no concurrent requests."],
+        {"python": '''
+            def solve(data):
+                store, cache, reads = dict(data["store"]), {}, []
+                for event in data["events"]:
+                    key = event["key"]
+                    if event["op"] == "get":
+                        if key not in cache:
+                            cache[key] = store.get(key)
+                        reads.append(cache[key])
+                    elif event["op"] == "put":
+                        store[key] = event["value"]
+                    else:
+                        store.pop(key, None)
+                return {"reads": reads, "state": {"store": store, "cache": cache}}
+        ''', "javascript": '''
+            function solve(data) {
+              const store = new Map(Object.entries(data.store)), cache = new Map(), reads = [];
+              for (const event of data.events) {
+                const key = event.key;
+                if (event.op === 'get') {
+                  if (!cache.has(key)) cache.set(key, store.has(key) ? store.get(key) : null);
+                  reads.push(cache.get(key));
+                } else if (event.op === 'put') {
+                  store.set(key, event.value);
+                } else {
+                  store.delete(key);
+                }
+              }
+              return { reads, state: { store: Object.fromEntries(store), cache: Object.fromEntries(cache) } };
+            }
+            module.exports = { solve };
+        '''},
+        {"python": '''
+            def solve(data):
+                store, cache, reads = dict(data["store"]), {}, []
+                for event in data["events"]:
+                    key = event["key"]
+                    if event["op"] == "get":
+                        if key not in cache:
+                            cache[key] = store.get(key)
+                        reads.append(cache[key])
+                    else:
+                        if event["op"] == "put":
+                            store[key] = event["value"]
+                        else:
+                            store.pop(key, None)
+                        cache.pop(key, None)
+                return {"reads": reads, "state": {"store": store, "cache": cache}}
+        ''', "javascript": '''
+            function solve(data) {
+              const store = new Map(Object.entries(data.store)), cache = new Map(), reads = [];
+              for (const event of data.events) {
+                const key = event.key;
+                if (event.op === 'get') {
+                  if (!cache.has(key)) cache.set(key, store.has(key) ? store.get(key) : null);
+                  reads.push(cache.get(key));
+                } else {
+                  if (event.op === 'put') store.set(key, event.value);
+                  else store.delete(key);
+                  cache.delete(key);
+                }
+              }
+              return { reads, state: { store: Object.fromEntries(store), cache: Object.fromEntries(cache) } };
+            }
+            module.exports = { solve };
+        '''},
+        [case("Repeated read", {"store": {"x": 1}, "events": [{"op": "get", "key": "x"}, {"op": "get", "key": "x"}]}, {"reads": [1, 1], "state": {"store": {"x": 1}, "cache": {"x": 1}}}),
+         case("Read after write", {"store": {"x": 1}, "events": [{"op": "get", "key": "x"}, {"op": "put", "key": "x", "value": 2}, {"op": "get", "key": "x"}]}, {"reads": [1, 2], "state": {"store": {"x": 2}, "cache": {"x": 2}}}),
+         case("Cached miss then creation", {"store": {}, "events": [{"op": "get", "key": "x"}, {"op": "put", "key": "x", "value": 0}, {"op": "get", "key": "x"}]}, {"reads": [None, 0], "state": {"store": {"x": 0}, "cache": {"x": 0}}}, True),
+         case("Read after delete", {"store": {"x": 1}, "events": [{"op": "get", "key": "x"}, {"op": "delete", "key": "x"}, {"op": "get", "key": "x"}]}, {"reads": [1, None], "state": {"store": {}, "cache": {"x": None}}}, True),
+         case("Invalidate without refilling", {"store": {"x": 1}, "events": [{"op": "get", "key": "x"}, {"op": "put", "key": "x", "value": 2}]}, {"reads": [1], "state": {"store": {"x": 2}, "cache": {}}}, True, [{"path": "state.cache", "equals": {}}]),
+         case("Keep unrelated cached entries", {"store": {"x": 1, "y": 2}, "events": [{"op": "get", "key": "x"}, {"op": "get", "key": "y"}, {"op": "put", "key": "x", "value": 5}]}, {"reads": [1, 2], "state": {"store": {"x": 5, "y": 2}, "cache": {"y": 2}}}, True),
+         case("Prototype-like key", {"store": {"__proto__": -1}, "events": [{"op": "get", "key": "__proto__"}, {"op": "put", "key": "__proto__", "value": 0}, {"op": "get", "key": "__proto__"}]}, {"reads": [-1, 0], "state": {"store": {"__proto__": 0}, "cache": {"__proto__": 0}}}, True),
+         case("Delete a cached missing key", {"store": {}, "events": [{"op": "get", "key": "missing"}, {"op": "delete", "key": "missing"}]}, {"reads": [None], "state": {"store": {}, "cache": {}}}, True),
+         case("No events", {"store": {"x": 0}, "events": []}, {"reads": [], "state": {"store": {"x": 0}, "cache": {}}}, True)],
+        "The cache is a derived copy. Invalidate the affected key after every store mutation, including a delete of a missing key because its absence may be cached. Test presence independently of value, and use Map for arbitrary JavaScript keys. This sequential exercise does not model concurrent cache-fill races. Expected time O(initial keys + events), space O(initial keys + events).",
+        ["Which copy does a get use after the authoritative store changes?",
+         "Both cached values and cached misses become stale after a mutation.",
+         "After each put or delete, remove just that key from cache; let the next get refill it."], 22,
+    ),
+    problem(
+        "queue-visibility-redelivery", "The job lost after a worker disappears",
+        "A queue simulator hides leased jobs while a worker processes them, but never makes them visible again. A crashed worker can leave a job stranded forever.",
+        "system_design", "hard", ["queues", "leases", "redelivery"],
+        ["Input.jobs contains at most 50 unique lowercase ASCII job IDs in queue order. Input.visibility is an integer from 1 through 100.",
+         "Process at most 200 events with nondecreasing integer now values from 0 through 10,000. A {op: 'receive', now} leases the first unfinished job in original queue order that has no lease or whose lease deadline <= now. Return {id, token}, or null if none is visible.",
+         "A successful receive uses the next integer token starting at 1 and sets that job's deadline to now + visibility. Empty receives do not consume tokens. Redelivery replaces the previous token.",
+         "An {op: 'ack', now, token} returns true and completes a job only when token matches its current lease, the job is unfinished, and now is strictly before its deadline. Otherwise return false without changing state.",
+         "Return {results: array, state: {pending: string[], done: string[]}}, with one result per event and both state lists in original job order. This is a deterministic lease simulation."],
+        {"python": '''
+            def solve(data):
+                jobs = [{"id": job, "deadline": None, "token": None, "done": False} for job in data["jobs"]]
+                results, next_token = [], 1
+                for event in data["events"]:
+                    now = event["now"]
+                    if event["op"] == "receive":
+                        job = next((job for job in jobs if not job["done"]
+                                    and job["deadline"] is None), None)
+                        if job is None:
+                            results.append(None)
+                        else:
+                            job["deadline"] = now + data["visibility"]
+                            job["token"] = next_token
+                            results.append({"id": job["id"], "token": next_token})
+                            next_token += 1
+                    else:
+                        job = next((job for job in jobs if not job["done"]
+                                    and job["token"] == event["token"] and now < job["deadline"]), None)
+                        if job is not None:
+                            job["done"] = True
+                        results.append(job is not None)
+                return {"results": results, "state": {
+                    "pending": [job["id"] for job in jobs if not job["done"]],
+                    "done": [job["id"] for job in jobs if job["done"]]}}
+        '''},
+        {"python": '''
+            def solve(data):
+                jobs = [{"id": job, "deadline": None, "token": None, "done": False} for job in data["jobs"]]
+                results, next_token = [], 1
+                for event in data["events"]:
+                    now = event["now"]
+                    if event["op"] == "receive":
+                        job = next((job for job in jobs if not job["done"]
+                                    and (job["deadline"] is None or job["deadline"] <= now)), None)
+                        if job is None:
+                            results.append(None)
+                        else:
+                            job["deadline"] = now + data["visibility"]
+                            job["token"] = next_token
+                            results.append({"id": job["id"], "token": next_token})
+                            next_token += 1
+                    else:
+                        job = next((job for job in jobs if not job["done"]
+                                    and job["token"] == event["token"] and now < job["deadline"]), None)
+                        if job is not None:
+                            job["done"] = True
+                        results.append(job is not None)
+                return {"results": results, "state": {
+                    "pending": [job["id"] for job in jobs if not job["done"]],
+                    "done": [job["id"] for job in jobs if job["done"]]}}
+        '''},
+        [case("Receive and acknowledge", {"jobs": ["a"], "visibility": 5, "events": [{"op": "receive", "now": 0}, {"op": "ack", "now": 1, "token": 1}]}, {"results": [{"id": "a", "token": 1}, True], "state": {"pending": [], "done": ["a"]}}),
+         case("Worker disappears until expiry", {"jobs": ["a"], "visibility": 5, "events": [{"op": "receive", "now": 0}, {"op": "receive", "now": 5}]}, {"results": [{"id": "a", "token": 1}, {"id": "a", "token": 2}], "state": {"pending": ["a"], "done": []}}),
+         case("Lease still active", {"jobs": ["a"], "visibility": 5, "events": [{"op": "receive", "now": 0}, {"op": "receive", "now": 4}]}, {"results": [{"id": "a", "token": 1}, None], "state": {"pending": ["a"], "done": []}}, True),
+         case("Old acknowledgement cannot finish a new lease", {"jobs": ["a"], "visibility": 5, "events": [{"op": "receive", "now": 0}, {"op": "receive", "now": 5}, {"op": "ack", "now": 6, "token": 1}, {"op": "ack", "now": 6, "token": 2}]}, {"results": [{"id": "a", "token": 1}, {"id": "a", "token": 2}, False, True], "state": {"pending": [], "done": ["a"]}}, True),
+         case("Expiry prioritizes original queue order", {"jobs": ["a", "b"], "visibility": 5, "events": [{"op": "receive", "now": 0}, {"op": "receive", "now": 1}, {"op": "receive", "now": 5}]}, {"results": [{"id": "a", "token": 1}, {"id": "b", "token": 2}, {"id": "a", "token": 3}], "state": {"pending": ["a", "b"], "done": []}}, True),
+         case("Acknowledgement at the deadline is too late", {"jobs": ["a"], "visibility": 5, "events": [{"op": "receive", "now": 0}, {"op": "ack", "now": 5, "token": 1}, {"op": "receive", "now": 5}]}, {"results": [{"id": "a", "token": 1}, False, {"id": "a", "token": 2}], "state": {"pending": ["a"], "done": []}}, True),
+         case("Empty receives preserve token sequence", {"jobs": ["a", "b"], "visibility": 5, "events": [{"op": "receive", "now": 0}, {"op": "receive", "now": 0}, {"op": "receive", "now": 1}, {"op": "ack", "now": 1, "token": 1}, {"op": "receive", "now": 5}]}, {"results": [{"id": "a", "token": 1}, {"id": "b", "token": 2}, None, True, {"id": "b", "token": 3}], "state": {"pending": ["b"], "done": ["a"]}}, True),
+         case("Completed jobs never return", {"jobs": ["a"], "visibility": 5, "events": [{"op": "receive", "now": 0}, {"op": "ack", "now": 1, "token": 1}, {"op": "ack", "now": 2, "token": 1}, {"op": "receive", "now": 10}]}, {"results": [{"id": "a", "token": 1}, True, False, None], "state": {"pending": [], "done": ["a"]}}, True),
+         case("Empty queue and unknown acknowledgement", {"jobs": [], "visibility": 5, "events": [{"op": "receive", "now": 0}, {"op": "ack", "now": 0, "token": 99}]}, {"results": [None, False], "state": {"pending": [], "done": []}}, True),
+         case("No events", {"jobs": ["b", "a"], "visibility": 1, "events": []}, {"results": [], "state": {"pending": ["b", "a"], "done": []}}, True)],
+        "A lease is temporary ownership, not permanent removal. An unfinished job becomes visible at its deadline. Assign a new token on redelivery and accept acknowledgements only for the current, unexpired lease, so an old worker cannot complete a newer delivery. Time O(events × jobs), space O(events + jobs).",
+        ["What makes an unfinished leased job eligible after its worker disappears?",
+         "The lease interval ends at deadline, so equality belongs to the next delivery.",
+         "Receive jobs with no lease or deadline <= now; retain the current-token and now < deadline checks for acknowledgements."], 30,
+    ),
+    problem(
+        "consistent-hash-wraparound", "The missing end of the hash ring",
+        "A shard router searches clockwise for the next token but forgets that the token space is a ring. Keys beyond the largest token lose their owner.",
+        "system_design", "medium", ["sharding", "consistent-hashing", "binary-search"],
+        ["Input.nodes contains at most 100 {position, owner} objects. Positions are unique integers from 0 through 9,999; owners are strings and may repeat for virtual nodes. Input order is arbitrary.",
+         "Input.hashes contains at most 200 precomputed integer hashes from 0 through 9,999.",
+         "For each hash, return the owner of the smallest position >= hash. If there is no such position, wrap to the smallest position on the ring.",
+         "Return an array in hash input order. An empty ring returns null for every hash; no hashes returns []."],
+        {"go": '''
+            package main
+            import "sort"
+            type ringNode struct { position int; owner string }
+            func Solve(data map[string]interface{}) interface{} {
+                nodes := make([]ringNode, 0)
+                for _, raw := range data["nodes"].([]interface{}) {
+                    node := raw.(map[string]interface{})
+                    nodes = append(nodes, ringNode{int(node["position"].(float64)), node["owner"].(string)})
+                }
+                sort.Slice(nodes, func(i, j int) bool { return nodes[i].position < nodes[j].position })
+                result := make([]interface{}, 0)
+                for _, raw := range data["hashes"].([]interface{}) {
+                    hash := int(raw.(float64))
+                    i := sort.Search(len(nodes), func(i int) bool { return nodes[i].position >= hash })
+                    if i == len(nodes) { result = append(result, nil) } else { result = append(result, nodes[i].owner) }
+                }
+                return result
+            }
+        '''},
+        {"go": '''
+            package main
+            import "sort"
+            type ringNode struct { position int; owner string }
+            func Solve(data map[string]interface{}) interface{} {
+                nodes := make([]ringNode, 0)
+                for _, raw := range data["nodes"].([]interface{}) {
+                    node := raw.(map[string]interface{})
+                    nodes = append(nodes, ringNode{int(node["position"].(float64)), node["owner"].(string)})
+                }
+                sort.Slice(nodes, func(i, j int) bool { return nodes[i].position < nodes[j].position })
+                result := make([]interface{}, 0)
+                for _, raw := range data["hashes"].([]interface{}) {
+                    if len(nodes) == 0 { result = append(result, nil); continue }
+                    hash := int(raw.(float64))
+                    i := sort.Search(len(nodes), func(i int) bool { return nodes[i].position >= hash })
+                    if i == len(nodes) { i = 0 }
+                    result = append(result, nodes[i].owner)
+                }
+                return result
+            }
+        '''},
+        [case("Clockwise successor", {"nodes": [{"position": 10, "owner": "a"}, {"position": 20, "owner": "b"}], "hashes": [0, 12]}, ["a", "b"]),
+         case("Wrap past the last token", {"nodes": [{"position": 10, "owner": "a"}, {"position": 20, "owner": "b"}], "hashes": [90]}, ["a"]),
+         case("Exact token belongs to that owner", {"nodes": [{"position": 10, "owner": "a"}, {"position": 20, "owner": "b"}], "hashes": [10, 11, 20, 21]}, ["a", "b", "b", "a"], True),
+         case("Unsorted tokens", {"nodes": [{"position": 70, "owner": "c"}, {"position": 10, "owner": "a"}, {"position": 40, "owner": "b"}], "hashes": [0, 20, 50, 99]}, ["a", "b", "c", "a"], True),
+         case("One owner covers the ring", {"nodes": [{"position": 500, "owner": "only"}], "hashes": [0, 500, 9999]}, ["only", "only", "only"], True),
+         case("Empty ring", {"nodes": [], "hashes": [0, 9999]}, [None, None], True),
+         case("No lookups", {"nodes": [{"position": 0, "owner": "a"}], "hashes": []}, [], True),
+         case("Virtual nodes share an owner", {"nodes": [{"position": 0, "owner": "a"}, {"position": 40, "owner": "b"}, {"position": 80, "owner": "a"}], "hashes": [0, 1, 41, 81]}, ["a", "b", "a", "a"], True)],
+        "Sort ring tokens and find the first position at least as large as the hash. A search result just past the array means wrap to index zero, provided the ring is not empty. Repeated owner names represent valid virtual nodes and must not be deduplicated. Time O(n log n + q log(n + 1)), space O(n + q).",
+        ["Where should a clockwise walk go after passing the largest token?",
+         "An out-of-range search result means wraparound for a nonempty ring, but absence for an empty ring.",
+         "Handle an empty ring first, then replace a search result equal to len(nodes) with index zero."], 20,
+    ),
+    problem(
+        "circuit-breaker-cooldown", "The circuit that never closes",
+        "A dependency circuit opens after repeated failures and blocks every later call, even after its cooldown. Repair recovery so a probe can restore service or start a fresh cooldown.",
+        "system_design", "hard", ["resilience", "circuit-breaker", "state-machine"],
+        ["Input.threshold is 1 through 5 and input.cooldown is 1 through 100. Start closed with zero consecutive failures.",
+         "Input.calls contains at most 200 {at, ok} objects with nondecreasing integer times from 0 through 10,000 and boolean outcomes. Every allowed call completes immediately.",
+         "While closed, success resets failures to zero; failure increments failures. Reaching threshold opens the circuit until at + cooldown.",
+         "While open and at < retry_at, return 'blocked' and ignore the supplied outcome without extending the cooldown. At or after retry_at, allow one synchronous probe: success closes and resets failures; failure immediately reopens until at + cooldown with failures set to threshold.",
+         "Return {results: ('ok', 'error', or 'blocked')[], state: {status: 'open' or 'closed', failures, retry_at}}. Use 0 for retry_at when closed. Merely reaching the deadline does not close the circuit without a successful probe."],
+        {"java": '''
+            import com.google.gson.*;
+            public class Solution {
+              public static JsonElement solve(JsonObject data) {
+                int threshold = data.get("threshold").getAsInt(), cooldown = data.get("cooldown").getAsInt();
+                int failures = 0;
+                Integer retryAt = null;
+                JsonArray results = new JsonArray();
+                for (JsonElement raw : data.getAsJsonArray("calls")) {
+                  JsonObject call = raw.getAsJsonObject();
+                  int at = call.get("at").getAsInt();
+                  if (retryAt != null) {
+                    results.add("blocked");
+                    continue;
+                  }
+                  boolean probe = retryAt != null;
+                  if (call.get("ok").getAsBoolean()) {
+                    failures = 0;
+                    retryAt = null;
+                    results.add("ok");
+                  } else {
+                    failures = probe ? threshold : failures + 1;
+                    if (failures >= threshold) retryAt = at + cooldown;
+                    results.add("error");
+                  }
+                }
+                JsonObject state = new JsonObject(), result = new JsonObject();
+                state.addProperty("status", retryAt == null ? "closed" : "open");
+                state.addProperty("failures", failures);
+                state.addProperty("retry_at", retryAt == null ? 0 : retryAt);
+                result.add("results", results);
+                result.add("state", state);
+                return result;
+              }
+            }
+        '''},
+        {"java": '''
+            import com.google.gson.*;
+            public class Solution {
+              public static JsonElement solve(JsonObject data) {
+                int threshold = data.get("threshold").getAsInt(), cooldown = data.get("cooldown").getAsInt();
+                int failures = 0;
+                Integer retryAt = null;
+                JsonArray results = new JsonArray();
+                for (JsonElement raw : data.getAsJsonArray("calls")) {
+                  JsonObject call = raw.getAsJsonObject();
+                  int at = call.get("at").getAsInt();
+                  if (retryAt != null && at < retryAt) {
+                    results.add("blocked");
+                    continue;
+                  }
+                  boolean probe = retryAt != null;
+                  if (call.get("ok").getAsBoolean()) {
+                    failures = 0;
+                    retryAt = null;
+                    results.add("ok");
+                  } else {
+                    failures = probe ? threshold : failures + 1;
+                    if (failures >= threshold) retryAt = at + cooldown;
+                    results.add("error");
+                  }
+                }
+                JsonObject state = new JsonObject(), result = new JsonObject();
+                state.addProperty("status", retryAt == null ? "closed" : "open");
+                state.addProperty("failures", failures);
+                state.addProperty("retry_at", retryAt == null ? 0 : retryAt);
+                result.add("results", results);
+                result.add("state", state);
+                return result;
+              }
+            }
+        '''},
+        [case("Success resets consecutive failures", {"threshold": 2, "cooldown": 5, "calls": [{"at": 0, "ok": False}, {"at": 1, "ok": True}, {"at": 2, "ok": False}]}, {"results": ["error", "ok", "error"], "state": {"status": "closed", "failures": 1, "retry_at": 0}}),
+         case("Recover at the deadline", {"threshold": 2, "cooldown": 5, "calls": [{"at": 0, "ok": False}, {"at": 1, "ok": False}, {"at": 5, "ok": True}, {"at": 6, "ok": True}]}, {"results": ["error", "error", "blocked", "ok"], "state": {"status": "closed", "failures": 0, "retry_at": 0}}),
+         case("Failed probe restarts the cooldown", {"threshold": 1, "cooldown": 5, "calls": [{"at": 0, "ok": False}, {"at": 5, "ok": False}]}, {"results": ["error", "error"], "state": {"status": "open", "failures": 1, "retry_at": 10}}, True, [{"path": "state.retry_at", "equals": 10}]),
+         case("Probe failure reopens immediately at a higher threshold", {"threshold": 3, "cooldown": 5, "calls": [{"at": 0, "ok": False}, {"at": 1, "ok": False}, {"at": 2, "ok": False}, {"at": 7, "ok": False}, {"at": 8, "ok": True}, {"at": 12, "ok": True}]}, {"results": ["error", "error", "error", "error", "blocked", "ok"], "state": {"status": "closed", "failures": 0, "retry_at": 0}}, True),
+         case("Blocked failure does not extend the deadline", {"threshold": 1, "cooldown": 5, "calls": [{"at": 0, "ok": False}, {"at": 4, "ok": False}, {"at": 5, "ok": True}]}, {"results": ["error", "blocked", "ok"], "state": {"status": "closed", "failures": 0, "retry_at": 0}}, True),
+         case("Same-time call is blocked", {"threshold": 1, "cooldown": 5, "calls": [{"at": 0, "ok": False}, {"at": 0, "ok": True}]}, {"results": ["error", "blocked"], "state": {"status": "open", "failures": 1, "retry_at": 5}}, True),
+         case("Late recovery", {"threshold": 1, "cooldown": 1, "calls": [{"at": 0, "ok": False}, {"at": 10000, "ok": True}]}, {"results": ["error", "ok"], "state": {"status": "closed", "failures": 0, "retry_at": 0}}, True),
+         case("No calls", {"threshold": 2, "cooldown": 5, "calls": []}, {"results": [], "state": {"status": "closed", "failures": 0, "retry_at": 0}}, True)],
+        "An open circuit rejects calls only before its retry deadline. Once the deadline is reached, the next allowed call is a probe: success clears the failure history, while failure immediately starts another cooldown. Blocked outcomes never affect state. This synchronous model has no overlapping probes. Time O(n), output space O(n), bookkeeping space O(1).",
+        ["Is 'open' permanent, or does its deadline permit a recovery attempt?",
+         "Distinguish calls before retry_at from calls at or after it; blocked calls must not move the deadline.",
+         "Block only when retryAt != null and at < retryAt. Preserve the existing probe success and failure transitions."], 28,
+    ),
+])
