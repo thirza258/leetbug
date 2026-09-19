@@ -9,6 +9,8 @@ class Settings(BaseSettings):
     database_url: str = "sqlite:///./leetbug.db"
     redis_url: str = "redis://localhost:6379/0"
     allowed_origins: str = "http://localhost:8080,http://localhost:5173"
+    allowed_hosts: str = "leetbug.nevatal.id,localhost,127.0.0.1"
+    csrf_trusted_origins: str = ""
     cookie_secure: bool = False
     session_days: int = 7
     seed_demo_user: bool = False
@@ -31,7 +33,8 @@ class Settings(BaseSettings):
 
     @property
     def origins(self) -> list[str]:
-        return [origin.strip().rstrip("/") for origin in self.allowed_origins.split(",") if origin.strip()]
+        raw = f"{self.allowed_origins},{self.csrf_trusted_origins}" if self.csrf_trusted_origins else self.allowed_origins
+        return list(dict.fromkeys(origin.strip().rstrip("/") for origin in raw.split(",") if origin.strip()))
 
     @property
     def ai_enabled(self) -> bool:

@@ -10,5 +10,6 @@ if [ ! -f .env ]; then
   chmod 600 .env
 fi
 docker compose up -d --build
-printf '\nLeetBug is starting at http://localhost:8080\nFollow startup: docker compose logs -f worker sandbox-build\n'
+port=$(grep -E '^APP_PORT=' .env 2>/dev/null | cut -d '=' -f2 || echo "9042")
+printf '\nLeetBug is starting at http://localhost:%s\nFollow startup: docker compose logs -f worker sandbox-build\n' "${port:-9042}"
 

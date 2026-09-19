@@ -6,7 +6,9 @@ x-backend: &backend
   environment: &backend-env
     DATABASE_URL: postgresql+psycopg://leetbug:${POSTGRES_PASSWORD:-leetbug-local-only}@postgres:5432/leetbug
     REDIS_URL: redis://redis:6379/0
-    ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-http://localhost:8080,http://localhost:5173}
+    ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-http://localhost:8080,http://localhost:5173,http://localhost:9042,https://leetbug.nevatal.id,http://leetbug.nevatal.id}
+    ALLOWED_HOSTS: ${ALLOWED_HOSTS:-leetbug.nevatal.id,localhost,127.0.0.1}
+    CSRF_TRUSTED_ORIGINS: ${CSRF_TRUSTED_ORIGINS:-https://leetbug.nevatal.id,http://leetbug.nevatal.id}
     COOKIE_SECURE: ${COOKIE_SECURE:-false}
     SEED_DEMO_USER: ${SEED_DEMO_USER:-false}
     DEMO_PASSWORD: ${DEMO_PASSWORD:-DebugBetter2026!}
@@ -28,7 +30,7 @@ x-backend: &backend
 services:
   web:
     build: ./frontend
-    ports: ["${APP_PORT:-8080}:8080"]
+    ports: ["${APP_PORT:-9042}:8080"]
     depends_on:
       api: {condition: service_healthy}
     networks: [app]
