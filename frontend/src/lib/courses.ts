@@ -1,29 +1,31 @@
-export interface Lesson {
-  slug: string;
-  title: string;
-  minutes: number;
-  sections: { title: string; text: string }[];
-  example: { title: string; text: string };
-  checkpoint: {
-    question: string;
-    options: { text: string; correct?: true; feedback: string }[];
-  };
-  source: { title: string; url: string };
-}
+import type { Course, CourseTrack, Lesson } from './course-types';
+import { debuggingCourses } from './course-content/debugging';
+import { runtimeCourses } from './course-content/runtime';
+import { logicCourses } from './course-content/logic';
+import { businessCourses } from './course-content/business';
+import { edgeCourses } from './course-content/edge';
+import { appliedSystemDesignCourses } from './course-content/system-design';
 
-export interface Course {
-  slug: string;
-  title: string;
-  description: string;
-  level: 'Foundations' | 'Intermediate';
-  outcomes: string[];
-  lessons: Lesson[];
-  practice: { slug: string; title: string }[];
-}
+export type { Course, CourseTrack, Lesson } from './course-types';
+
+export const courseTracks: { id: CourseTrack; title: string; description: string }[] = [
+  { id: 'debugging', title: 'Debugging fundamentals', description: 'Start here: reproduce a failure, follow the evidence, and prove the fix.' },
+  { id: 'runtime', title: 'Runtime errors', description: 'Trace crashes, unsafe operations, and execution that never finishes.' },
+  { id: 'logic', title: 'Logic errors', description: 'Find the wrong decision in code that runs but gives the wrong answer.' },
+  { id: 'business', title: 'Business flow', description: 'Protect business rules through validation, state changes, and retries.' },
+  { id: 'edge', title: 'Edge & corner cases', description: 'Test the boundaries, representations, and combinations the happy path misses.' },
+  { id: 'system_design', title: 'System design', description: 'Choose a design from requirements, then test its behavior under failure.' },
+];
 
 export const courses: Course[] = [
+  ...debuggingCourses,
+  ...runtimeCourses,
+  ...logicCourses,
+  ...businessCourses,
+  ...edgeCourses,
   {
     slug: 'choosing-an-architecture',
+    track: 'system_design',
     title: 'Choosing the right architecture',
     description: 'Turn a vague brief into requirements, compare designs, and explain the trade-offs behind your choice.',
     level: 'Foundations',
@@ -76,6 +78,7 @@ export const courses: Course[] = [
   },
   {
     slug: 'data-consistency-and-caching',
+    track: 'system_design',
     title: 'Data, consistency, and caching',
     description: 'Choose storage around access patterns, protect concurrent updates, and decide when stale data is acceptable.',
     level: 'Intermediate',
@@ -128,6 +131,7 @@ export const courses: Course[] = [
   },
   {
     slug: 'queues-and-reliability',
+    track: 'system_design',
     title: 'Queues, retries, and reliability',
     description: 'Handle bursts and partial failures without creating duplicate work or overwhelming a dependency.',
     level: 'Intermediate',
@@ -178,6 +182,7 @@ export const courses: Course[] = [
       },
     ],
   },
+  ...appliedSystemDesignCourses,
 ];
 
 export const lessonKey = (course: Course, lesson: Lesson) => `${course.slug}/${lesson.slug}`;

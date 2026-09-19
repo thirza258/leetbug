@@ -11,38 +11,39 @@ test('catalog filtering, navigation, and mobile layout', async ({ page }) => {
   await page.reload();
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
   await expect(page.locator('.problem-table tbody tr')).toHaveCount(20);
-  await expect(page.locator('.catalog-footer')).toContainText('121 case studies');
+  await expect(page.locator('.catalog-footer')).toContainText('221 case studies');
   await page.screenshot({ path: '../artifacts/library-dark.png', fullPage: true });
   await page.getByRole('button', { name: 'Switch to light theme' }).click();
   const caseNumbers = await page.locator('.problem-number').allTextContents();
-  for (let current = 2; current <= 6; current++) {
+  for (let current = 2; current <= 11; current++) {
     await page.getByRole('button', { name: 'Next page', exact: true }).click();
     await expect(page).toHaveURL(`/?page=${current}`);
     await expect(page.locator('.problem-table tbody tr')).toHaveCount(20);
     await expect(page.locator('.problem-number').first()).toHaveText(`${(current - 1) * 20 + 1}.`);
     caseNumbers.push(...await page.locator('.problem-number').allTextContents());
   }
-  expect(new Set(caseNumbers).size).toBe(120);
+  expect(new Set(caseNumbers).size).toBe(220);
   await page.getByRole('button', { name: 'Next page', exact: true }).click();
-  await expect(page).toHaveURL('/?page=7');
+  await expect(page).toHaveURL('/?page=12');
   await expect(page.locator('.problem-table tbody tr')).toHaveCount(1);
-  await expect(page.getByRole('link', { name: /The circuit that never closes/ })).toBeVisible();
+  await expect(page.getByRole('link', { name: /The backlog grows past its admission limit/ })).toBeVisible();
   caseNumbers.push(...await page.locator('.problem-number').allTextContents());
-  expect(new Set(caseNumbers).size).toBe(121);
+  expect(new Set(caseNumbers).size).toBe(221);
   await expect(page.getByRole('button', { name: 'Next page', exact: true })).toBeDisabled();
-  await page.getByRole('link', { name: /The circuit that never closes/ }).click();
-  await expect(page.getByRole('heading', { name: 'The circuit that never closes', exact: true })).toBeVisible();
+  await page.getByRole('link', { name: /The backlog grows past its admission limit/ }).click();
+  await expect(page.getByRole('heading', { name: 'The backlog grows past its admission limit', exact: true })).toBeVisible();
   await expect(page.locator('.monaco-editor')).toBeVisible();
   await page.goBack();
-  await expect(page).toHaveURL('/?page=7');
+  await expect(page).toHaveURL('/?page=12');
   await page.getByRole('button', { name: 'Previous page', exact: true }).click();
-  await expect(page).toHaveURL('/?page=6');
+  await expect(page).toHaveURL('/?page=11');
   await page.getByRole('button', { name: 'Previous page', exact: true }).click();
-  await expect(page).toHaveURL('/?page=5');
+  await expect(page).toHaveURL('/?page=10');
   await page.setViewportSize({ width: 390, height: 844 });
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
   await page.screenshot({ path: '../artifacts/library-expanded-mobile.png', fullPage: true, animations: 'disabled' });
   await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.goto('/?page=5');
   await page.getByRole('link', { name: /The waitlist that skips its turn/ }).click();
   await expect(page.getByRole('heading', { name: 'The waitlist that skips its turn', exact: true })).toBeVisible();
   await expect(page.locator('.monaco-editor')).toBeVisible();
@@ -70,6 +71,33 @@ test('catalog filtering, navigation, and mobile layout', async ({ page }) => {
   await page.getByRole('link', { name: 'Getting started' }).click();
   await expect(page.getByRole('heading', { name: 'Find the bug. Build the instinct.' })).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+});
+
+test('new catalog problem runs, accepts a repair, and unlocks its solution', async ({ page }) => {
+  await page.goto('/register');
+  const username = `expansion_${Date.now().toString(36)}`;
+  await page.getByLabel('Username').fill(username);
+  await page.getByLabel('Email address').fill(`${username}@example.com`);
+  await page.getByLabel('Password', { exact: true }).fill('ExpansionTestPassword123!');
+  await page.getByRole('button', { name: 'Start your debugging journey' }).click();
+  await expect(page).toHaveURL('/');
+  await page.getByLabel('Search case studies').fill('complement');
+  await page.getByRole('link', { name: /A complement includes infinitely many high bits/ }).click();
+  await expect(page.locator('.monaco-editor')).toBeVisible();
+  await page.getByRole('button', { name: 'Run code', exact: true }).click();
+  await expect(page.locator('.results-summary')).toContainText('Failed', { timeout: 90_000 });
+  await page.locator('.monaco-editor .view-lines').click({ position: { x: 100, y: 35 } });
+  await page.keyboard.press('ControlOrMeta+a');
+  const solution = 'def solve(data):\n    return (~data["value"]) & ((1 << data["width"]) - 1)\n';
+  await page.context().grantPermissions(['clipboard-read', 'clipboard-write']);
+  await page.evaluate(source => navigator.clipboard.writeText(source), solution);
+  await page.keyboard.press('ControlOrMeta+v');
+  await page.getByRole('button', { name: 'Submit fix', exact: true }).click();
+  await expect(page.locator('.success-note')).toContainText('All tests passed', { timeout: 90_000 });
+  await page.getByRole('button', { name: 'Solutions', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Behind the fix' })).toBeVisible();
+  await page.getByRole('link', { name: 'My progress', exact: true }).click();
+  await expect(page.locator('.category-progress > div').filter({ hasText: 'Edge & corner cases' })).toContainText('1 / 49');
 });
 
 test('register, fail, retrieve a hint, fix code, unlock solutions, and persist progress', async ({ page }) => {

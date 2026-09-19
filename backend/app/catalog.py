@@ -4,6 +4,8 @@ Append new problems: catalog order determines stable seeded database IDs.
 """
 from textwrap import dedent
 
+from app.catalog_extra import ADDITIONAL_CATALOG
+
 
 def code(source: str) -> str:
     return dedent(source).strip() + "\n"
@@ -5750,3 +5752,6 @@ CATALOG.extend([
          "Block only when retryAt != null and at < retryAt. Preserve the existing probe success and failure transitions."], 28,
     ),
 ])
+
+# IDs 122–221 preserve all existing problem IDs and stored progress.
+CATALOG.extend(ADDITIONAL_CATALOG)

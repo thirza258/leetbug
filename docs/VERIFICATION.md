@@ -1,5 +1,25 @@
 # Verification results
 
+## 221 problems and 42 course lessons — September 19, 2026
+
+Added **100 Python problems** as IDs 122–221, with 20 additions per category, 500 independently authored expected test results, three progressive hints per problem, and executable reference solutions. The complete catalog now has **221 problems, 259 language variants, and 1,299 test cases**, including 857 hidden cases. Existing IDs and definitions are preserved. The running local PostgreSQL catalog was seeded to 221 problems.
+
+Added **11 courses and 33 lessons**, for 14 courses and 42 lessons across debugging fundamentals, runtime errors, logic errors, business flow, edge and corner cases, and system design. New lessons include a diagnosis method, worked steps, code where useful, answer feedback, source links, and related executable practice cases. Section filters use shareable URLs; existing lesson URLs and browser progress keys remain compatible.
+
+| Check | Result |
+| --- | --- |
+| Backend | 128 tests passed, including reference answers and public starter failures for all 100 additions, category totals, API redaction, and upgrades from 40, 100, 101, and 121 problems preserving content and progress. Ruff passed. |
+| Isolated execution | 207/207 checks passed: 100 buggy starters, 100 reference solutions, and seven execution-boundary probes. Every starter compiles and fails a public case; every solution passes all five authored cases. Existing problem programs were not rerun in this scoped execution pass. |
+| Frontend | TypeScript, ESLint, and the production build passed. The existing Monaco chunk-size warning remains. Course content stays in its separate route bundle. |
+| Course browser flows | 17 tests passed, covering all 42 lessons, incorrect and correct feedback, idempotent completion, reloads, resuming, course sequencing, all practice links, malformed/unavailable storage, unknown routes, six section filters, guest/member separation, and desktop/mobile themes. |
+| Library browser flow | All 12 pages expose 221 unique IDs; final-problem navigation, search, language filtering, theme persistence, and mobile layout passed. Updated the old final-problem test expectation before rerunning this flow successfully. |
+| New problem submission | A new account opened the fixed-width complement problem, reproduced its starter failure, submitted a repair through the real API/Celery/sandbox path, unlocked its solution, and recorded 1/49 edge-case progress. |
+| Local browser verification | The course and library routes render meaningful content with no framework error overlay or reported page errors. The API reports 221 problems. |
+
+Browser checks used `http://localhost:5173` with the running Compose API, database, worker, and execution sandbox. Local evidence includes `artifacts/catalog-expansion-sandbox.jsonl`, `artifacts/frontend-build-221.log`, and `artifacts/course*.png`. These artifacts are ignored by Git. Browser submission checks create named local test accounts and real submissions; the direct sandbox verifier does not create submission history.
+
+Reproduce with `.venv/bin/pytest backend/tests -q -m 'not sandbox'`, `.venv/bin/ruff check backend`, and `npm run check && npm run build` in `frontend`. For the relevant browser flows, run `BASE_URL=http://localhost:5173 npm run test:e2e -- --grep 'course|catalog filtering|new catalog problem'`. The complete catalog can be checked with `docker compose exec worker python -m app.verify_catalog`.
+
 ## 121-problem catalog — September 16, 2026
 
 Added 20 problems as IDs 102–121: four each in runtime, logic, edge cases, business flow, and system design. The catalog contains **121 problems, 159 language variants, and 799 test cases**, including 557 hidden cases. The additions include five easy, eleven medium, and four hard problems, each with three progressive hints and a reference explanation.

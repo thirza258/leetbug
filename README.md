@@ -27,8 +27,8 @@ For a different port, change both `APP_PORT` and the corresponding origin in `AL
 
 ## What is included
 
-- 121 executable case studies: 29 each for runtime, logic, business flow, and edge cases, plus five system design challenges, with 159 language variants and 799 public/hidden test cases. Each case includes buggy starter code, three progressive hints, and a reference solution. The catalog has search, tags, category/language/difficulty/progress filters, ordering, pagination, and bookmarks.
-- Three system design courses at `/courses`, with nine lessons on architecture selection, data and caching, and queues and reliability. Every lesson includes a worked example, a knowledge check with answer feedback, and an official reference. Completion is saved in this browser separately for guests and each signed-in user; it does not sync across devices. Courses link directly to executable practice cases.
+- 221 executable case studies: 49 each for runtime, logic, business flow, and edge cases, plus 25 system design challenges, with 259 language variants and 1,299 public/hidden test cases. Each case includes buggy starter code, three progressive hints, and a reference solution. The latest expansion adds 100 Python problems and 500 test cases. The catalog has search, tags, category/language/difficulty/progress filters, ordering, pagination, and bookmarks.
+- Fourteen problem-solving courses at `/courses`, with 42 lessons across debugging fundamentals, runtime errors, logic errors, business flow, edge and corner cases, and system design. Eleven new courses provide step-by-step worked examples and code where useful, alongside knowledge checks with answer feedback and source references. Section filters have shareable URLs. Completion is saved in this browser separately for guests and each signed-in user; it does not sync across devices. Courses link directly to executable practice cases.
 - A simple interface with persistent light and dark themes, matching Monaco and notifications. Contextual actions open a case, resume a submission, request guidance, share a fix, and continue to the next challenge.
 - Locally bundled Monaco with highlighting, find, folding, bracket matching, and completion; language-specific drafts survive reloads. No Monaco CDN dependency.
 - Manual and AI-assist modes, public runs, full submissions, queued/running/completed feedback, readable errors, and per-case state assertions.
@@ -151,7 +151,7 @@ cd backend
 ../.venv/bin/alembic upgrade head
 ```
 
-The local default database is SQLite for tests/development tools. Compose always uses PostgreSQL. Production schema changes belong in Alembic migrations. New cases belong in `backend/app/catalog.py`; the seed command inserts new slugs without overwriting existing content.
+The local default database is SQLite for tests/development tools. Compose always uses PostgreSQL. Production schema changes belong in Alembic migrations. The original cases live in `backend/app/catalog.py`, with the latest append-only expansion in `backend/app/catalog_extra/`. Keep existing order and append new slugs; the seed command inserts them without overwriting existing content. After pulling catalog additions on a running installation, run `docker compose exec api python -m app.seed`.
 
 ## Verification
 

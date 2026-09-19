@@ -1,83 +1,97 @@
 import { expect, test } from '@playwright/test';
+import { courses, courseTracks } from '../src/lib/courses';
 
-test('courses explain choices, grade answers, and resume all nine lessons', async ({ page }) => {
+test('courses cover every section with shareable filters and mobile layouts', async ({ page }) => {
   const errors: string[] = [];
   page.on('pageerror', error => errors.push(error.message));
   await page.goto('/');
   await page.getByRole('link', { name: 'Courses', exact: true }).click();
-  await expect(page.getByRole('heading', { name: 'System design courses', exact: true })).toBeVisible();
-  await expect(page.locator('.course-card')).toHaveCount(3);
-  await page.getByRole('link', { name: 'Start course', exact: true }).first().click();
-  await expect(page.getByRole('heading', { name: 'Start with the requirements', exact: true })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Check answer' })).toBeDisabled();
-  await page.getByRole('radio', { name: 'Choose it because throughput is the highest.' }).check();
-  await page.getByRole('button', { name: 'Check answer' }).click();
-  await expect(page.locator('.checkpoint-feedback')).toContainText('makes this candidate infeasible');
-  await expect(page.locator('.course-progress')).toContainText('0 of 3 lessons complete');
-
-  const lessons = [
-    ['choosing-an-architecture', 'requirements-first', 'Exclude it, then compare the candidates that meet every requirement.'],
-    ['choosing-an-architecture', 'architecture-styles', 'Enqueue conversion work and expose job status.'],
-    ['choosing-an-architecture', 'defend-the-decision', 'Report no feasible design and revisit candidates or requirements.'],
-    ['data-consistency-and-caching', 'access-patterns', 'The required transaction boundary and query patterns.'],
-    ['data-consistency-and-caching', 'concurrent-updates', 'Atomically debit only when the stored balance is sufficient, and check whether it succeeded.'],
-    ['data-consistency-and-caching', 'cache-freshness', 'No. Check whether the key exists independently of its value.'],
-    ['queues-and-reliability', 'queues-and-bursts', 'The backlog grows unless capacity or admission changes.'],
-    ['queues-and-reliability', 'safe-retries', 'The same key and payload for the same intended reservation.'],
-    ['queues-and-reliability', 'bounded-recovery', 'Two retries, subject to the overall deadline.'],
-  ];
-  for (const [index, [course, lesson, answer]] of lessons.entries()) {
-    if (index > 0) await expect(page).toHaveURL(`/courses/${course}${index % 3 === 0 ? '' : `/${lesson}`}`);
-    await expect(page.locator('.lesson-example')).toBeVisible();
-    await expect(page.locator('.lesson-source')).toHaveAttribute('href', /^https:\/\//);
-    await page.getByRole('radio', { name: answer, exact: true }).check();
-    await page.getByRole('button', { name: 'Check answer' }).click();
-    await expect(page.locator('.checkpoint-feedback')).toContainText('Correct.');
-    await expect(page.locator('.course-progress')).toContainText(`${index % 3 + 1} of 3 lessons complete`);
+  await expect(page.getByRole('heading', { name: 'Problem-solving courses' })).toBeVisible();
+  await expect(page.locator('.course-card')).toHaveCount(14);
+  await expect(page.locator('.course-intro')).toContainText('14 courses · 42 lessons');
+  await expect(page.locator('.course-track')).toHaveCount(6);
+  for (const track of courseTracks) {
+    await page.getByRole('navigation', { name: 'Course sections' }).getByRole('link', { name: new RegExp(`^${track.title}`) }).click();
+    await expect(page).toHaveURL(`/courses?track=${track.id}`);
+    await expect(page.locator('.course-card')).toHaveCount(track.id === 'system_design' ? 4 : 2);
+    await expect(page.getByRole('heading', { name: track.title, exact: true })).toBeVisible();
     await page.reload();
-    await expect(page.getByText('Knowledge check passed', { exact: true })).toBeVisible();
-    // Rechecking an already completed lesson must not increment progress twice.
-    if (index === 0) {
-      await page.getByRole('radio', { name: answer, exact: true }).check();
-      await page.getByRole('button', { name: 'Check answer' }).click();
-      await expect(page.locator('.course-progress')).toContainText('1 of 3 lessons complete');
-      await page.getByRole('link', { name: 'All courses', exact: true }).click();
-      await page.getByRole('link', { name: 'Continue course', exact: true }).click();
-    } else if (index % 3 < 2) {
-      await page.getByRole('link', { name: 'Next lesson', exact: true }).click();
-    } else {
-      await expect(page.getByRole('heading', { name: 'Course complete', exact: true })).toBeVisible();
-      // Every linked practice case must resolve to a real public problem.
-      for (const link of await page.locator('.practice-link').all()) {
-        const href = await link.getAttribute('href');
-        const response = await page.request.get(`/api${href}`);
-        expect(response.ok()).toBe(true);
-      }
-      if (index < lessons.length - 1) await page.getByRole('link', { name: /^Next course:/ }).click();
-    }
+    await expect(page.locator('.course-track')).toHaveCount(1);
   }
-  await page.getByRole('link', { name: 'All courses', exact: true }).click();
-  await expect(page.getByRole('link', { name: 'Review course', exact: true })).toHaveCount(3);
-  await page.screenshot({ path: '../artifacts/system-design-courses.png', fullPage: true });
+  await page.goto('/courses?track=unknown');
+  await expect(page.locator('.course-card')).toHaveCount(14);
+  await page.goto('/courses?track=runtime');
+  await page.screenshot({ path: '../artifacts/courses-runtime-desktop.png', fullPage: true });
   await page.getByRole('button', { name: 'Switch to dark theme' }).click();
-  await page.getByRole('link', { name: 'Review course', exact: true }).first().click();
-  await page.screenshot({ path: '../artifacts/system-design-lesson-dark.png', fullPage: true });
+  await page.getByRole('link', { name: 'Start course', exact: true }).first().click();
+  await expect(page.locator('.lesson-code')).toBeVisible();
+  await expect(page.locator('.lesson-steps li')).toHaveCount(3);
+  await page.screenshot({ path: '../artifacts/course-walkthrough-dark.png', fullPage: true });
   await page.setViewportSize({ width: 390, height: 844 });
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
-  await page.screenshot({ path: '../artifacts/system-design-lesson-mobile.png', fullPage: true, animations: 'disabled' });
-  await page.getByRole('button', { name: 'Open navigation' }).click();
-  await page.getByRole('link', { name: 'Courses', exact: true }).click();
-  await expect(page.getByRole('heading', { name: 'System design courses', exact: true })).toBeVisible();
+  await page.screenshot({ path: '../artifacts/course-walkthrough-mobile.png', fullPage: true, animations: 'disabled' });
+  await page.getByRole('link', { name: 'All courses', exact: true }).click();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
   expect(errors).toEqual([]);
 });
+
+for (const course of courses) {
+  test(`course lessons grade and persist: ${course.title}`, async ({ page }) => {
+    await page.goto(`/courses/${course.slug}`);
+    for (const [index, lesson] of course.lessons.entries()) {
+      await expect(page.getByRole('heading', { name: lesson.title, exact: true })).toBeVisible();
+      await expect(page.locator('.lesson-example')).toBeVisible();
+      await expect(page.locator('.lesson-source')).toHaveAttribute('href', lesson.source.url);
+      await expect(page.getByRole('button', { name: 'Check answer' })).toBeDisabled();
+      if (lesson.example.steps) await expect(page.locator('.lesson-steps li')).toHaveCount(3);
+      const answer = lesson.checkpoint.options.find(option => option.correct)!;
+      if (index === 0) {
+        const wrong = lesson.checkpoint.options.find(option => !option.correct)!;
+        await page.getByRole('radio', { name: wrong.text, exact: true }).check();
+        await page.getByRole('button', { name: 'Check answer' }).click();
+        await expect(page.locator('.checkpoint-feedback')).toContainText(wrong.feedback);
+        await expect(page.locator('.course-progress')).toContainText('0 of 3 lessons complete');
+      }
+      await page.getByRole('radio', { name: answer.text, exact: true }).check();
+      await page.getByRole('button', { name: 'Check answer' }).click();
+      await expect(page.locator('.checkpoint-feedback')).toContainText(answer.feedback);
+      await expect(page.locator('.course-progress')).toContainText(`${index + 1} of 3 lessons complete`);
+      await page.reload();
+      await expect(page.getByText('Knowledge check passed', { exact: true })).toBeVisible();
+      if (index === 0) {
+        // Completing the same lesson twice must not double-count it.
+        await page.getByRole('radio', { name: answer.text, exact: true }).check();
+        await page.getByRole('button', { name: 'Check answer' }).click();
+        await expect(page.locator('.course-progress')).toContainText('1 of 3 lessons complete');
+        await page.getByRole('link', { name: 'All courses', exact: true }).click();
+        await page.getByRole('link', { name: 'Continue course', exact: true }).click();
+        await expect(page).toHaveURL(`/courses/${course.slug}/${course.lessons[1].slug}`);
+      } else if (index < course.lessons.length - 1) {
+        await page.getByRole('link', { name: 'Next lesson', exact: true }).click();
+      }
+    }
+    await expect(page.getByRole('heading', { name: 'Course complete', exact: true })).toBeVisible();
+    for (const problem of course.practice) {
+      const response = await page.request.get(`/api/problems/${problem.slug}`);
+      expect(response.ok()).toBe(true);
+      expect((await response.json()).title).toBe(problem.title);
+    }
+    const nextCourse = courses[courses.indexOf(course) + 1];
+    if (nextCourse) {
+      await page.getByRole('link', { name: /^Next course:/ }).click();
+      await expect(page.getByRole('heading', { name: nextCourse.title, exact: true })).toBeVisible();
+    }
+    await page.getByRole('link', { name: 'All courses', exact: true }).click();
+    await expect(page.getByRole('link', { name: 'Review course', exact: true })).toHaveCount(1);
+  });
+}
 
 test('courses recover from invalid storage and unknown lessons', async ({ page }) => {
   await page.goto('/courses');
   for (const value of ['not json', 'null', '{}', '["unknown/lesson",3,null]']) {
     await page.evaluate(saved => localStorage.setItem('leetbug.courses.v1:guest', saved), value);
     await page.reload();
-    await expect(page.getByRole('link', { name: 'Start course', exact: true })).toHaveCount(3);
+    await expect(page.getByRole('link', { name: 'Start course', exact: true })).toHaveCount(courses.length);
   }
   await page.goto('/courses/missing');
   await expect(page.getByText('This lesson could not be found.')).toBeVisible();
@@ -105,15 +119,15 @@ test('course progress is separate for guests and members, and the system design 
   await page.getByRole('button', { name: 'Start your debugging journey' }).click();
   await expect(page).toHaveURL('/');
   await page.getByRole('link', { name: 'Courses', exact: true }).click();
-  await expect(page.getByRole('link', { name: 'Start course', exact: true })).toHaveCount(3);
-  await page.getByRole('link', { name: 'Start course', exact: true }).nth(1).click();
+  await expect(page.getByRole('link', { name: 'Start course', exact: true })).toHaveCount(courses.length);
+  await page.getByRole('link', { name: 'Data, consistency, and caching', exact: true }).click();
   await page.getByRole('radio', { name: 'The required transaction boundary and query patterns.' }).check();
   await page.getByRole('button', { name: 'Check answer' }).click();
   await page.reload();
   await expect(page.getByText('Knowledge check passed', { exact: true })).toBeVisible();
   await page.getByRole('link', { name: /Problem library/ }).click();
   await page.getByRole('button', { name: /System design Choose for the requirements/ }).click();
-  await expect(page.locator('.problem-table tbody tr')).toHaveCount(5);
+  await expect(page.locator('.problem-table tbody tr')).toHaveCount(20);
   await page.getByRole('link', { name: /Choosing the right system design/ }).click();
   await expect(page.locator('.monaco-editor')).toBeVisible();
   await page.getByRole('button', { name: 'Run code', exact: true }).click();
@@ -142,10 +156,10 @@ test('course progress is separate for guests and members, and the system design 
   await page.getByRole('button', { name: 'Solutions', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Behind the fix' })).toBeVisible();
   await page.getByRole('link', { name: 'My progress', exact: true }).click();
-  await expect(page.locator('.category-progress > div').filter({ hasText: 'System design' })).toContainText('1 / 5');
+  await expect(page.locator('.category-progress > div').filter({ hasText: 'System design' })).toContainText('1 / 25');
   await page.getByRole('link', { name: 'Courses', exact: true }).click();
-  await expect(page.locator('.course-card').nth(1)).toContainText('1 of 3 lessons complete');
+  await expect(page.locator('.course-card').filter({ hasText: 'Data, consistency, and caching' })).toContainText('1 of 3 lessons complete');
   await page.getByRole('button', { name: 'Sign out', exact: true }).click();
-  await expect(page.locator('.course-card').first()).toContainText('1 of 3 lessons complete');
-  await expect(page.locator('.course-card').nth(1)).toContainText('0 of 3 lessons complete');
+  await expect(page.locator('.course-card').filter({ hasText: 'Choosing the right architecture' })).toContainText('1 of 3 lessons complete');
+  await expect(page.locator('.course-card').filter({ hasText: 'Data, consistency, and caching' })).toContainText('0 of 3 lessons complete');
 });
