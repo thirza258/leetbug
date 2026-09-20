@@ -3,13 +3,14 @@ import time
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, PlainTextResponse, Response
 from sqlalchemy import text
 
 from app.api import router
 from app.config import settings
 from app.db import engine
 from app.limits import redis_client
+from app.sitemap import generate_robots_txt, generate_sitemap_xml
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
 log = logging.getLogger("leetbug.http")
@@ -54,6 +55,16 @@ def ready():
         return {"status": "ready", "database": "ok", "queue": "ok"}
     except Exception:
         return JSONResponse({"status": "unavailable"}, status_code=503)
+
+
+@app.get("/robots.txt", response_class=PlainTextResponse)
+def robots_txt():
+    return PlainTextResponse(generate_robots_txt(), media_type="text/plain")
+
+
+@app.get("/sitemap.xml", response_class=Response)
+def sitemap_xml():
+    return Response(content=generate_sitemap_xml(), media_type="application/xml")
 
 
 app.include_router(router)

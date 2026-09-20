@@ -256,3 +256,22 @@ def test_worker_ai_persistence_grading_and_idempotent_delivery(client, member, d
     assert row["generated_code"].startswith("def solve")
     hidden = [r for r in row["results"] if r["hidden"]]
     assert hidden and all(set(r) == {"name", "hidden", "status"} for r in hidden)
+
+
+def test_robots_and_sitemap(client):
+    for path in ("/robots.txt", "/api/robots.txt"):
+        res = client.get(path)
+        assert res.status_code == 200
+        assert "text/plain" in res.headers["content-type"]
+        assert "User-agent: *" in res.text
+        assert "Sitemap: https://leetbug.nevatal.id/sitemap.xml" in res.text
+
+    for path in ("/sitemap.xml", "/api/sitemap.xml"):
+        res = client.get(path)
+        assert res.status_code == 200
+        assert "application/xml" in res.headers["content-type"]
+        assert "<urlset xmlns=\"http://www.sitemaps.org/schemas/sitemap/0.9\">" in res.text
+        assert res.text.count("<url>") == 282
+        assert "/problems/missing-last-item" in res.text
+        assert "/courses/finding-the-bug" in res.text
+

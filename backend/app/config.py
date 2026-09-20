@@ -11,6 +11,7 @@ class Settings(BaseSettings):
     allowed_origins: str = "http://localhost:8080,http://localhost:5173"
     allowed_hosts: str = "leetbug.nevatal.id,localhost,127.0.0.1"
     csrf_trusted_origins: str = ""
+    site_url: str = "https://leetbug.nevatal.id"
     cookie_secure: bool = False
     session_days: int = 7
     seed_demo_user: bool = False

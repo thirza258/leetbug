@@ -1,0 +1,10 @@
+User-agent: *
+Allow: /
+Disallow: /api/
+Disallow: /login
+Disallow: /register
+Disallow: /progress
+Disallow: /submissions
+Disallow: /discussions/new
+
+Sitemap: https://leetbug.nevatal.id/sitemap.xml

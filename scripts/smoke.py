@@ -23,6 +23,20 @@ def main():
     parser.add_argument("--base-url", default="http://localhost:8080")
     parser.add_argument("--ai", action="store_true", help="Also make a real request to the configured model")
     args = parser.parse_args()
+    with httpx.Client(base_url=args.base_url, timeout=30) as root_client:
+        robots = root_client.get("/robots.txt")
+        assert robots.status_code == 200, f"robots.txt failed: {robots.status_code}"
+        assert "text/plain" in robots.headers.get("content-type", "")
+        assert "User-agent: *" in robots.text
+        assert "Sitemap: " in robots.text
+
+        sitemap = root_client.get("/sitemap.xml")
+        assert sitemap.status_code == 200, f"sitemap.xml failed: {sitemap.status_code}"
+        assert "xml" in sitemap.headers.get("content-type", "")
+        assert "<urlset" in sitemap.text
+        assert "/problems/" in sitemap.text
+        print("Root robots.txt and sitemap.xml: passed.", flush=True)
+
     with httpx.Client(base_url=args.base_url + "/api", timeout=30) as client:
         name = "smoke_" + uuid.uuid4().hex[:10]
         response = client.post("/auth/register", json={"email": name + "@example.com", "username": name,

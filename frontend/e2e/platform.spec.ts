@@ -210,3 +210,30 @@ test('live AI directive generates a passing patch and enters the prompt leaderbo
   await expect(page.locator('.own-rank')).toContainText(String(directive.split(/\s+/).length));
   expect(errors).toEqual([]);
 });
+
+test('serves robots.txt and sitemap.xml with correct headers and valid content', async ({ request }) => {
+  const robots = await request.get('/robots.txt');
+  expect(robots.status()).toBe(200);
+  expect(robots.headers()['content-type']).toContain('text/plain');
+  const robotsText = await robots.text();
+  expect(robotsText).toContain('User-agent: *');
+  expect(robotsText).toContain('Sitemap: https://leetbug.nevatal.id/sitemap.xml');
+
+  const sitemap = await request.get('/sitemap.xml');
+  expect(sitemap.status()).toBe(200);
+  expect(sitemap.headers()['content-type']).toContain('xml');
+  const sitemapText = await sitemap.text();
+  expect(sitemapText).toContain('<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">');
+  expect(sitemapText).toContain('https://leetbug.nevatal.id/');
+  expect(sitemapText).toContain('/problems/missing-last-item');
+  expect(sitemapText).toContain('/courses/finding-the-bug');
+
+  const robotsRedirect = await request.get('/robots', { maxRedirects: 0 });
+  expect(robotsRedirect.status()).toBe(301);
+  expect(robotsRedirect.headers()['location']).toBe('/robots.txt');
+
+  const sitemapRedirect = await request.get('/sitemap', { maxRedirects: 0 });
+  expect(sitemapRedirect.status()).toBe(301);
+  expect(sitemapRedirect.headers()['location']).toBe('/sitemap.xml');
+});
+

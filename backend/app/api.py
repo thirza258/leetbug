@@ -1,6 +1,7 @@
 from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
+from fastapi.responses import PlainTextResponse
 from sqlalchemy import delete, func, or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
@@ -21,6 +22,7 @@ from app.config import settings
 from app.db import get_db
 from app.limits import rate_limit
 from app.models import AuthSession, Bookmark, Discussion, Hint, Problem, Reply, Submission, User, Vote
+from app.sitemap import generate_robots_txt, generate_sitemap_xml
 from app.schemas import (
     DiscussionCreate,
     HintCreate,
@@ -426,3 +428,14 @@ def delete_reply(reply_id: str, user: User = Depends(current_user), db: Session 
         raise HTTPException(403, "You can only delete your own replies.")
     db.delete(row)
     db.commit()
+
+
+@router.get("/robots.txt", response_class=PlainTextResponse)
+def api_robots_txt():
+    return PlainTextResponse(generate_robots_txt(), media_type="text/plain")
+
+
+@router.get("/sitemap.xml", response_class=Response)
+def api_sitemap_xml():
+    return Response(content=generate_sitemap_xml(), media_type="application/xml")
+
