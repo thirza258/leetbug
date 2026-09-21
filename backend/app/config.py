@@ -31,6 +31,7 @@ class Settings(BaseSettings):
     embedding_base_url: str = ""
     embedding_model: str = ""
     hint_failure_threshold: int = 2
+    admin_email: str = ""
 
     @property
     def origins(self) -> list[str]:

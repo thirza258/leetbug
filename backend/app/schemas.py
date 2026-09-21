@@ -52,3 +52,26 @@ class ReplyCreate(BaseModel):
     def strip_text(cls, value):
         return value.strip() if isinstance(value, str) else value
 
+
+class ProblemSubmissionCreate(BaseModel):
+    title: str = Field(min_length=5, max_length=150)
+    summary: str = Field(min_length=10, max_length=500)
+    description: str = Field(min_length=20, max_length=10000)
+    category: str = Field(pattern=r"^(runtime|logic|business|edge|system_design)$")
+    difficulty: str = Field(pattern=r"^(easy|medium|hard)$")
+    tags: list[str] = Field(default_factory=list, max_length=5)
+    language: Language
+    buggy_code: str = Field(min_length=10, max_length=50000)
+    fixed_code: str = Field(min_length=10, max_length=50000)
+    test_cases: list[dict] = Field(min_length=1, max_length=20)
+    hint: str = Field(default="", max_length=2000)
+
+    @field_validator("title", "summary", "description", "hint", mode="before")
+    @classmethod
+    def strip_text(cls, value):
+        return value.strip() if isinstance(value, str) else value
+
+
+class AdminReviewAction(BaseModel):
+    action: str = Field(pattern=r"^(approved|rejected)$")
+    admin_notes: str = Field(default="", max_length=2000)

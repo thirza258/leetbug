@@ -16,17 +16,20 @@ from app.auth import (
     passwords,
     public_user,
     record_activity,
+    require_admin,
     start_session,
 )
 from app.config import settings
 from app.db import get_db
 from app.limits import rate_limit
-from app.models import AuthSession, Bookmark, Discussion, Hint, Problem, Reply, Submission, User, Vote
+from app.models import AuthSession, Bookmark, Discussion, Hint, Problem, ProblemSubmission, Reply, Submission, User, Vote, now
 from app.sitemap import generate_robots_txt, generate_sitemap_xml
 from app.schemas import (
+    AdminReviewAction,
     DiscussionCreate,
     HintCreate,
     Login,
+    ProblemSubmissionCreate,
     ProfileUpdate,
     Register,
     ReplyCreate,
@@ -428,6 +431,90 @@ def delete_reply(reply_id: str, user: User = Depends(current_user), db: Session 
         raise HTTPException(403, "You can only delete your own replies.")
     db.delete(row)
     db.commit()
+
+
+# ── user problem submissions ──────────────────────────────
+
+
+def slugify(text: str) -> str:
+    import re
+    slug = text.lower().strip()
+    slug = re.sub(r'[^\w\s-]', '', slug)
+    slug = re.sub(r'[\s_]+', '-', slug)
+    slug = re.sub(r'-+', '-', slug)
+    return slug[:100]
+
+
+def submission_problem_view(sub, author_username=None):
+    return {key: getattr(sub, key) for key in (
+        "id", "author_id", "title", "slug", "summary", "description", "category",
+        "difficulty", "tags", "language", "buggy_code", "fixed_code", "test_cases",
+        "hint", "status", "admin_notes", "reviewed_at", "reviewed_by", "created_at"
+    )} | ({"author_username": author_username} if author_username else {})
+
+
+@router.post("/problem-submissions", status_code=201)
+def submit_problem(data: ProblemSubmissionCreate, user: User = Depends(current_user), db: Session = Depends(get_db)):
+    rate_limit(f"problem-submit:{user.id}", 5)
+    slug = slugify(data.title)
+    # Ensure unique slug by appending a short random suffix
+    import secrets as _secrets
+    slug = f"{slug}-{_secrets.token_hex(3)}"
+    sub = ProblemSubmission(author_id=user.id, slug=slug, **data.model_dump())
+    db.add(sub)
+    db.commit()
+    return submission_problem_view(sub)
+
+
+@router.get("/problem-submissions")
+def my_problem_submissions(page: int = Query(1, ge=1), user: User = Depends(current_user), db: Session = Depends(get_db)):
+    total = db.scalar(select(func.count()).select_from(ProblemSubmission).where(ProblemSubmission.author_id == user.id))
+    rows = db.scalars(select(ProblemSubmission).where(ProblemSubmission.author_id == user.id)
+                      .order_by(ProblemSubmission.created_at.desc()).offset((page - 1) * 20).limit(20))
+    return {"items": [submission_problem_view(row) for row in rows], "total": total, "page": page, "limit": 20}
+
+
+# ── admin endpoints ───────────────────────────────────────
+
+@router.get("/admin/problem-submissions")
+def admin_list_submissions(status_filter: str = Query("", alias="status"), page: int = Query(1, ge=1),
+                           admin: User = Depends(require_admin), db: Session = Depends(get_db)):
+    query = select(ProblemSubmission)
+    if status_filter:
+        query = query.where(ProblemSubmission.status == status_filter)
+    total = db.scalar(select(func.count()).select_from(query.subquery()))
+    rows = db.execute(select(ProblemSubmission, User.username)
+                      .join(User, ProblemSubmission.author_id == User.id)
+                      .where(*([ProblemSubmission.status == status_filter] if status_filter else []))
+                      .order_by(ProblemSubmission.created_at.desc())
+                      .offset((page - 1) * 20).limit(20))
+    return {"items": [submission_problem_view(sub, username) for sub, username in rows],
+            "total": total, "page": page, "limit": 20}
+
+
+@router.get("/admin/problem-submissions/{submission_id}")
+def admin_get_submission(submission_id: str, admin: User = Depends(require_admin), db: Session = Depends(get_db)):
+    row = db.execute(select(ProblemSubmission, User.username)
+                     .join(User, ProblemSubmission.author_id == User.id)
+                     .where(ProblemSubmission.id == submission_id)).first()
+    if not row:
+        raise HTTPException(404, "Submission not found.")
+    sub, username = row
+    return submission_problem_view(sub, username)
+
+
+@router.patch("/admin/problem-submissions/{submission_id}")
+def admin_review_submission(submission_id: str, data: AdminReviewAction,
+                            admin: User = Depends(require_admin), db: Session = Depends(get_db)):
+    sub = db.get(ProblemSubmission, submission_id)
+    if not sub:
+        raise HTTPException(404, "Submission not found.")
+    sub.status = data.action
+    sub.admin_notes = data.admin_notes
+    sub.reviewed_at = now()
+    sub.reviewed_by = admin.id
+    db.commit()
+    return submission_problem_view(sub)
 
 
 @router.get("/robots.txt", response_class=PlainTextResponse)

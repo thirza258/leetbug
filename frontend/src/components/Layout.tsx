@@ -1,4 +1,4 @@
-import { ArrowUpRight, BarChart3, BookOpen, ChevronRight, CircleHelp, GraduationCap, LayoutGrid, LogOut, Menu, MessageSquare, Trophy, X } from 'lucide-react';
+import { ArrowUpRight, BarChart3, BookOpen, ChevronRight, CircleHelp, GraduationCap, LayoutGrid, LogOut, Menu, MessageSquare, PenLine, ShieldCheck, Trophy, X } from 'lucide-react';
 import { NavLink, Outlet, useLocation } from 'react-router-dom';
 import { useState } from 'react';
 import { toast } from 'sonner';
@@ -30,7 +30,9 @@ export default function Layout() {
     <aside className={`sidebar ${open ? 'is-open' : ''}`}>
       <div className="sidebar-brand"><Logo /><button className="icon-button mobile-only" onClick={() => setOpen(false)} aria-label="Close navigation"><X size={20} /></button></div>
       <span className="nav-label">WORKSPACE</span>
-      <nav aria-label="Main navigation">{links.map(({ to, label, icon: Icon }) => <NavLink key={to} to={to} end={to === '/'} onClick={() => setOpen(false)} className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}><Icon size={18} /><span>{label}</span>{to === '/' && <span className="nav-count">{meta.data?.problem_count ?? '—'}</span>}</NavLink>)}</nav>
+      <nav aria-label="Main navigation">{links.map(({ to, label, icon: Icon }) => <NavLink key={to} to={to} end={to === '/'} onClick={() => setOpen(false)} className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}><Icon size={18} /><span>{label}</span>{to === '/' && <span className="nav-count">{meta.data?.problem_count ?? '—'}</span>}</NavLink>)}
+      <NavLink to="/submit-problem" onClick={() => setOpen(false)} className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}><PenLine size={18} /><span>Submit a problem</span></NavLink>
+      {user?.is_admin && <NavLink to="/admin" onClick={() => setOpen(false)} className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}><ShieldCheck size={18} /><span>Admin panel</span></NavLink>}</nav>
       <div className="sidebar-bottom">
         <NavLink to="/guide" className="nav-link" onClick={() => setOpen(false)}><CircleHelp size={18} /><span>Getting started</span></NavLink>
         <div className="sidebar-user">{user ? <><NavLink to="/progress" className="user-link" onClick={() => setOpen(false)}><Avatar name={user.username} /><div><strong>{user.username}</strong><span>Your account</span></div></NavLink><button title="Sign out" aria-label="Sign out" className="icon-button" onClick={() => { logout().catch(error => toast.error(error.message)); }}><LogOut size={16} /></button></> : <NavLink className="button secondary full" to="/login">Sign in / Join LeetBug <ArrowUpRight size={15} /></NavLink>}</div>

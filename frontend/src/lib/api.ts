@@ -23,3 +23,36 @@ export function post<T>(path: string, body?: unknown) {
   return api<T>(path, { method: 'POST', ...(body === undefined ? {} : { body: JSON.stringify(body) }) });
 }
 
+// ---------- problem submissions ----------
+
+export function submitProblem(data: {
+  title: string; summary: string; description: string; category: string;
+  difficulty: string; tags: string[]; language: string; buggy_code: string;
+  fixed_code: string; test_cases: { input: string; expected: string }[];
+  hint: string;
+}) {
+  return post<import('../types').ProblemSubmission>('/problem-submissions', data);
+}
+
+export function getMyProblemSubmissions(page = 1) {
+  return api<import('../types').Page<import('../types').ProblemSubmission>>(`/problem-submissions?page=${page}`);
+}
+
+// ---------- admin ----------
+
+export function getAdminSubmissions(status = '', page = 1) {
+  return api<import('../types').Page<import('../types').ProblemSubmission>>(
+    `/admin/problem-submissions?status=${status}&page=${page}`
+  );
+}
+
+export function getAdminSubmission(id: string) {
+  return api<import('../types').ProblemSubmission>(`/admin/problem-submissions/${id}`);
+}
+
+export function reviewSubmission(id: string, action: 'approved' | 'rejected', admin_notes = '') {
+  return api<import('../types').ProblemSubmission>(`/admin/problem-submissions/${id}`, {
+    method: 'PATCH',
+    body: JSON.stringify({ action, admin_notes }),
+  });
+}

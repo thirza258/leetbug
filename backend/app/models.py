@@ -142,3 +142,25 @@ class Vote(Base):
     discussion_id: Mapped[str] = mapped_column(ForeignKey("discussions.id", ondelete="CASCADE"))
     __table_args__ = (UniqueConstraint("user_id", "discussion_id"),)
 
+
+class ProblemSubmission(Base):
+    __tablename__ = "problem_submissions"
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uid)
+    author_id: Mapped[str] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    title: Mapped[str] = mapped_column(String(150))
+    slug: Mapped[str] = mapped_column(String(100))
+    summary: Mapped[str] = mapped_column(Text)
+    description: Mapped[str] = mapped_column(Text)
+    category: Mapped[str] = mapped_column(String(30))
+    difficulty: Mapped[str] = mapped_column(String(10))
+    tags: Mapped[list] = mapped_column(JSON, default=list)
+    language: Mapped[str] = mapped_column(String(20))
+    buggy_code: Mapped[str] = mapped_column(Text)
+    fixed_code: Mapped[str] = mapped_column(Text)
+    test_cases: Mapped[list] = mapped_column(JSON, default=list)
+    hint: Mapped[str] = mapped_column(Text, default="")
+    status: Mapped[str] = mapped_column(String(20), default="pending", index=True)
+    admin_notes: Mapped[str] = mapped_column(Text, default="")
+    reviewed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    reviewed_by: Mapped[str | None] = mapped_column(String(36))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)

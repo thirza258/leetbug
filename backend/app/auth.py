@@ -57,8 +57,14 @@ def current_user(user: User | None = Depends(optional_user)) -> User:
 
 def public_user(user: User) -> dict:
     return {"id": user.id, "email": user.email, "username": user.username,
-            "bio": user.bio, "created_at": user.created_at}
+            "bio": user.bio, "created_at": user.created_at,
+            "is_admin": bool(settings.admin_email and user.email == settings.admin_email)}
 
+
+def require_admin(user: User = Depends(current_user)) -> User:
+    if not settings.admin_email or user.email != settings.admin_email:
+        raise HTTPException(403, "Admin access required.")
+    return user
 
 def start_session(db: Session, response: Response, user: User):
     token, csrf = secrets.token_urlsafe(32), secrets.token_urlsafe(32)
