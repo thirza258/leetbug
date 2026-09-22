@@ -1,0 +1,25 @@
+{
+  "linkset": [
+    {
+      "anchor": "https://leetbug.nevatal.id/api",
+      "service-desc": [
+        {
+          "href": "https://leetbug.nevatal.id/api/openapi.json",
+          "type": "application/vnd.oai.openapi+json"
+        }
+      ],
+      "service-doc": [
+        {
+          "href": "https://leetbug.nevatal.id/api/docs",
+          "type": "text/html"
+        }
+      ],
+      "status": [
+        {
+          "href": "https://leetbug.nevatal.id/health",
+          "type": "application/json"
+        }
+      ]
+    }
+  ]
+}

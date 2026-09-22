@@ -1,0 +1,30 @@
+{
+  "name": "LeetBug Agent",
+  "version": "1.0.0",
+  "description": "Interactive coding challenge debugging and hint platform.",
+  "url": "https://leetbug.nevatal.id",
+  "supportedInterfaces": [
+    {
+      "url": "https://leetbug.nevatal.id/mcp",
+      "protocol": "mcp"
+    },
+    {
+      "url": "https://leetbug.nevatal.id/api",
+      "protocol": "http"
+    }
+  ],
+  "capabilities": [
+    {
+      "id": "code-debugging",
+      "name": "Code Debugging",
+      "description": "Debug code errors, analyze failing test cases, and provide hints"
+    }
+  ],
+  "skills": [
+    {
+      "id": "code-debugging",
+      "name": "Code Debugging & Review",
+      "description": "Analyze bug reports, inspect test cases, generate hints, and debug algorithmic code challenges."
+    }
+  ]
+}

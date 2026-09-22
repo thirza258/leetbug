@@ -1,0 +1,12 @@
+{
+  "$schema": "https://schemas.agentskills.io/discovery/0.2.0/schema.json",
+  "skills": [
+    {
+      "name": "code-debugging",
+      "type": "skill-md",
+      "description": "Analyze bug reports, inspect test cases, generate hints, and debug algorithmic code challenges on LeetBug.",
+      "url": "https://leetbug.nevatal.id/skills/code-debugging/SKILL.md",
+      "digest": "sha256:392d70607156cacf54c38c085a95c96ab7359920316f738e739f85a1ae02d0f8"
+    }
+  ]
+}
