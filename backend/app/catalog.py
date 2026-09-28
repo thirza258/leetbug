@@ -5,6 +5,8 @@ Append new problems: catalog order determines stable seeded database IDs.
 from textwrap import dedent
 
 from app.catalog_extra import ADDITIONAL_CATALOG
+from app.catalog_extra.wave2 import SECOND_WAVE
+from app.catalog_extra.wave3 import THIRD_WAVE
 
 
 def code(source: str) -> str:
@@ -5755,3 +5757,7 @@ CATALOG.extend([
 
 # IDs 122–221 preserve all existing problem IDs and stored progress.
 CATALOG.extend(ADDITIONAL_CATALOG)
+# IDs 222–271 follow in the same category order, so earlier IDs never move.
+CATALOG.extend(SECOND_WAVE)
+# IDs 272–324 append the third wave after them.
+CATALOG.extend(THIRD_WAVE)
