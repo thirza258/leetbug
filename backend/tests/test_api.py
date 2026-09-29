@@ -45,7 +45,7 @@ def test_origin_and_payload_limits(client):
 
 def test_catalog_filters_and_no_private_oracles(client, member):
     response = client.get("/api/problems").json()
-    assert response["total"] == len(CATALOG) == 221
+    assert response["total"] == len(CATALOG) == 324
     assert len(response["items"]) == 20
     second_page = client.get("/api/problems?page=2").json()
     assert len(second_page["items"]) == 20
@@ -59,18 +59,20 @@ def test_catalog_filters_and_no_private_oracles(client, member):
     assert pages[-1]["items"][-1]["id"] == len(CATALOG)
     assert pages[5]["items"][0]["slug"] == "choosing-the-right-system-design"
     assert pages[6]["items"][0]["slug"] == "circuit-breaker-cooldown"
-    assert pages[-1]["items"][-1]["slug"] == "bounded-admission-queue"
+    assert pages[11]["items"][0]["slug"] == "bounded-admission-queue"
+    assert pages[13]["items"][10]["slug"] == "autoscaler-ceiling-replicas"
+    assert pages[-1]["items"][-1]["slug"] == "smooth-weighted-round-robin"
     assert client.get(f"/api/problems?page={page_count + 1}").json()["items"] == []
     assert client.get("/api/meta").json()["problem_count"] == len(CATALOG)
     for category in ("runtime", "logic", "business", "edge"):
-        assert client.get(f"/api/problems?category={category}").json()["total"] == 49
-    assert client.get("/api/problems?category=system_design").json()["total"] == 25
+        assert client.get(f"/api/problems?category={category}").json()["total"] == 69
+    assert client.get("/api/problems?category=system_design").json()["total"] == 48
     assert client.get("/api/problems?category=business&language=python&difficulty=medium").json()["total"] == sum(
         item["category"] == "business" and "python" in item["starters"] and item["difficulty"] == "medium"
         for item in CATALOG
     )
-    assert client.get("/api/problems?q=overflow").json()["total"] == 1
-    assert client.get("/api/problems?language=go").json()["total"] == 21
+    assert client.get("/api/problems?q=overflow").json()["total"] == 3
+    assert client.get("/api/problems?language=go").json()["total"] == 34
     assert client.get("/api/problems?tag=rollback").json()["total"] == 1
     assert client.get("/api/problems?page=2&limit=5").json()["items"][0]["id"] == 6
     assert client.get("/api/problems?limit=0").status_code == 422
@@ -89,7 +91,7 @@ def test_catalog_filters_and_no_private_oracles(client, member):
         assert len(expanded["public_tests"]) == sum(not test["hidden"] for test in item["tests"])
 
 
-@pytest.mark.parametrize("original_count", [40, 100, 101, 121])
+@pytest.mark.parametrize("original_count", [40, 100, 101, 121, 221, 271])
 def test_catalog_upgrade_preserves_existing_content_and_progress(db_factory, client, member, original_count):
     submission_id = create_attempt(db_factory, member, status="passed", problem_id=original_count)
     with db_factory() as db:
@@ -121,7 +123,7 @@ def test_system_design_discovery_and_progress(client, member, db_factory):
     assert problem["slug"] == "choosing-the-right-system-design"
     create_attempt(db_factory, member, status="passed", problem_id=problem["id"])
     stats = client.get("/api/analytics/me").json()
-    assert {"category": "system_design", "total": 25, "solved": 1} in stats["categories"]
+    assert {"category": "system_design", "total": 48, "solved": 1} in stats["categories"]
     assert sum(category["total"] for category in stats["categories"]) == stats["total_problems"]
     solutions = client.get(f"/api/problems/{problem['slug']}/solutions").json()
     assert set(solutions["solutions"]) == {"python", "javascript"}

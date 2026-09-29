@@ -156,7 +156,7 @@ test('course progress is separate for guests and members, and the system design 
   await page.getByRole('button', { name: 'Solutions', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Behind the fix' })).toBeVisible();
   await page.getByRole('link', { name: 'My progress', exact: true }).click();
-  await expect(page.locator('.category-progress > div').filter({ hasText: 'System design' })).toContainText('1 / 25');
+  await expect(page.locator('.category-progress > div').filter({ hasText: 'System design' })).toContainText('1 / 48');
   await page.getByRole('link', { name: 'Courses', exact: true }).click();
   await expect(page.locator('.course-card').filter({ hasText: 'Data, consistency, and caching' })).toContainText('1 of 3 lessons complete');
   await page.getByRole('button', { name: 'Sign out', exact: true }).click();
