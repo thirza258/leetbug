@@ -1,0 +1,28 @@
+{
+  "specVersion": "1.0",
+  "host": {
+    "displayName": "LeetBug",
+    "identifier": "did:web:leetbug.nevatal.id"
+  },
+  "entries": [
+    {
+      "identifier": "urn:air:leetbug.nevatal.id:api:site",
+      "displayName": "LeetBug API",
+      "type": "application/json",
+      "url": "https://leetbug.nevatal.id/api/",
+      "representativeQueries": [
+        "what does LeetBug do",
+        "get data from LeetBug"
+      ]
+    },
+    {
+      "identifier": "urn:air:leetbug.nevatal.id:server:mcp",
+      "displayName": "LeetBug MCP Server",
+      "type": "application/mcp-server-card+json",
+      "url": "https://leetbug.nevatal.id/.well-known/mcp/server-card.json",
+      "representativeQueries": [
+        "query LeetBug"
+      ]
+    }
+  ]
+}

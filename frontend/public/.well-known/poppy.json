@@ -1,0 +1,46 @@
+{
+  "protocol_version": "0.1",
+  "organization": {
+    "name": "Nevatal",
+    "domain": "leetbug.nevatal.id"
+  },
+  "auth": {
+    "issuer": "https://leetbug.nevatal.id",
+    "direct": {
+      "scopes": [
+        "poppy:read",
+        "poppy:write"
+      ]
+    },
+    "device": {
+      "scopes": [
+        "poppy:read",
+        "poppy:write"
+      ]
+    }
+  },
+  "agent": {
+    "protocols": [
+      {
+        "type": "poppy",
+        "endpoint": "https://leetbug.nevatal.id/api/"
+      }
+    ]
+  },
+  "apis": [
+    {
+      "type": "openapi",
+      "url": "https://leetbug.nevatal.id/api/",
+      "description": "LeetBug API"
+    },
+    {
+      "type": "mcp",
+      "url": "https://leetbug.nevatal.id/mcp",
+      "description": "LeetBug MCP server"
+    }
+  ],
+  "web": {
+    "browser_session_endpoint": "https://leetbug.nevatal.id/"
+  },
+  "extensions": {}
+}

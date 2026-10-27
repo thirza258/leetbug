@@ -49,5 +49,11 @@
       ],
       "claim_uri": "https://leetbug.nevatal.id/api/agent/claim"
     }
-  }
+  },
+  "registration_endpoint": "https://leetbug.nevatal.id/api/agent/register",
+  "poppy_domains": [
+    "leetbug.nevatal.id"
+  ],
+  "revocation_endpoint": "https://leetbug.nevatal.id/api/agent/revoke",
+  "device_authorization_endpoint": "https://leetbug.nevatal.id/oauth/device_authorization"
 }

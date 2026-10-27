@@ -1,4 +1,7 @@
 User-agent: *
+Content-Signal: ai-train=yes, search=yes, ai-input=yes
+Host: https://leetbug.nevatal.id
+Agentmap: https://leetbug.nevatal.id/.well-known/ai-catalog.json
 Allow: /
 Disallow: /api/
 Disallow: /login
