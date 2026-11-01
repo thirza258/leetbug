@@ -45,6 +45,7 @@ export default function Layout() {
           <NavLink to="/guide">Help &amp; guide</NavLink>
           <NavLink to="/privacy">Privacy Policy</NavLink>
           <NavLink to="/terms">Terms of Service</NavLink>
+          <span>This project is under nevatal.id for educational purposes.</span>
           <span>LeetBug <span className="muted">/</span> v1.0</span>
         </footer>
       )}
