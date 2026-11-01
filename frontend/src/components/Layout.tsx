@@ -40,7 +40,14 @@ export default function Layout() {
     </aside>
     <div className="main-shell"><header className="topbar"><div className="breadcrumb"><button className="icon-button mobile-only" aria-label="Open navigation" onClick={() => setOpen(true)}><Menu size={20} /></button><span>Workspace</span><ChevronRight size={14} /><strong>{title}</strong></div><div className="topbar-right"><ThemeToggle />{user ? <Avatar name={user.username} size="small" /> : <NavLink to="/register" className="button primary small">Start debugging <ArrowUpRight size={14} /></NavLink>}</div></header>
       <main id="main-content" tabIndex={-1}><Outlet /></main>
-      {!workspace && <footer className="footer"><NavLink to="/guide">Help &amp; guide</NavLink><span>LeetBug <span className="muted">/</span> v1.0</span></footer>}
+      {!workspace && (
+        <footer className="footer">
+          <NavLink to="/guide">Help &amp; guide</NavLink>
+          <NavLink to="/privacy">Privacy Policy</NavLink>
+          <NavLink to="/terms">Terms of Service</NavLink>
+          <span>LeetBug <span className="muted">/</span> v1.0</span>
+        </footer>
+      )}
     </div>
   </div>;
 }
