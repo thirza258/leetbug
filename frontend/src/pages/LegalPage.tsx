@@ -99,6 +99,18 @@ export default function LegalPage() {
               Execution artifacts are scrubbed immediately upon test evaluation completion.
             </p>
           </section>
+
+          <section className="card" style={{ padding: '24px' }}>
+            <h2 style={{ fontSize: '1.15rem', color: 'var(--text, #fff)', marginTop: 0, marginBottom: '10px' }}>
+              4. Privacy Inquiries
+            </h2>
+            <p style={{ margin: 0 }}>
+              For questions regarding privacy, account deletion, or server hosting, contact:{" "}
+              <a href="mailto:nevatalapp@gmail.com" style={{ color: 'var(--accent, #818cf8)', fontWeight: 600 }}>
+                nevatalapp@gmail.com
+              </a>
+            </p>
+          </section>
         </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', lineHeight: 1.6, fontSize: '0.9rem', color: 'var(--text-secondary, #ccc)' }}>
@@ -141,6 +153,18 @@ export default function LegalPage() {
             <p style={{ margin: 0 }}>
               The software and problem sandbox are provided on an &ldquo;AS IS&rdquo; basis without warranties of any kind.
               Maintainers are not liable for any issues arising from executing arbitrary code in local environments.
+            </p>
+          </section>
+
+          <section className="card" style={{ padding: '24px' }}>
+            <h2 style={{ fontSize: '1.15rem', color: 'var(--text, #fff)', marginTop: 0, marginBottom: '10px' }}>
+              5. Terms Contact
+            </h2>
+            <p style={{ margin: 0 }}>
+              For legal inquiries regarding terms and acceptable use, contact:{" "}
+              <a href="mailto:nevatalapp@gmail.com" style={{ color: 'var(--accent, #818cf8)', fontWeight: 600 }}>
+                nevatalapp@gmail.com
+              </a>
             </p>
           </section>
         </div>
