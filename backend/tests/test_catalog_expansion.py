@@ -8,21 +8,24 @@ from app.catalog import CATALOG
 from app.catalog_extra import ADDITIONAL_CATALOG
 from app.catalog_extra.wave2 import SECOND_WAVE
 from app.catalog_extra.wave3 import THIRD_WAVE
+from app.catalog_extra.wave4 import FOURTH_WAVE
 from app.execution import equal
 
 # Other languages run only in the sandbox: python -m app.verify_catalog.
-PYTHON_ADDITIONS = [item for item in ADDITIONAL_CATALOG + SECOND_WAVE + THIRD_WAVE if "python" in item["solutions"]]
+PYTHON_ADDITIONS = [item for item in ADDITIONAL_CATALOG + SECOND_WAVE + THIRD_WAVE + FOURTH_WAVE if "python" in item["solutions"]]
 
 
 def test_expansion_is_append_only_and_balanced():
-    assert len(CATALOG) == 324
+    assert len(CATALOG) == 344
     assert len(ADDITIONAL_CATALOG) == 100
     assert len(SECOND_WAVE) == 50
     assert len(THIRD_WAVE) == 53
+    assert len(FOURTH_WAVE) == 20
     assert CATALOG[120]["slug"] == "circuit-breaker-cooldown"
     assert CATALOG[121:221] == ADDITIONAL_CATALOG
     assert CATALOG[221:271] == SECOND_WAVE
-    assert CATALOG[271:] == THIRD_WAVE
+    assert CATALOG[271:324] == THIRD_WAVE
+    assert CATALOG[324:] == FOURTH_WAVE
     assert Counter(item["category"] for item in ADDITIONAL_CATALOG) == {
         "runtime": 20, "logic": 20, "business": 20, "edge": 20, "system_design": 20,
     }
@@ -38,11 +41,17 @@ def test_expansion_is_append_only_and_balanced():
     assert Counter(language for item in THIRD_WAVE for language in item["solutions"]) == {
         "python": 27, "java": 7, "javascript": 7, "go": 6, "cpp": 6,
     }
+    assert Counter(item["category"] for item in FOURTH_WAVE) == {
+        "data_science": 10, "data_analytics": 10,
+    }
+    assert Counter(language for item in FOURTH_WAVE for language in item["solutions"]) == {
+        "python": 20,
+    }
     assert len({item["slug"] for item in CATALOG}) == len(CATALOG)
     assert len({item["title"] for item in CATALOG}) == len(CATALOG)
 
 
-@pytest.mark.parametrize("item", SECOND_WAVE + THIRD_WAVE, ids=lambda item: item["slug"])
+@pytest.mark.parametrize("item", SECOND_WAVE + THIRD_WAVE + FOURTH_WAVE, ids=lambda item: item["slug"])
 def test_single_language_wave_shape(item):
     (language,) = item["solutions"]
     assert set(item["starters"]) == {language}

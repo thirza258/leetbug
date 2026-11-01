@@ -168,3 +168,19 @@ To support an interactive interface, heavy asynchronous processing, and dynamic 
   * Expand programming language support (e.g., C++, JavaScript, Go).
 
 &nbsp;
+---
+
+## **9. Community Submissions, WebMCP Agent Discovery & Monetization Stack**
+
+### **9.1 Community Problem Submissions & Admin Review Dashboard**
+* **User-Contributed Debugging Challenges:** Allows verified developers to submit novel buggy code snippets, test case assertions, and reference solutions across Python, JavaScript, Go, and Java.
+* **Admin Governance Portal:** Dedicated administrative dashboard for reviewing, dry-running in Docker sandboxes, editing, and publishing user submissions.
+
+### **9.2 Autonomous Agent Readiness & Machine Discovery (WebMCP)**
+* **WebMCP Architecture:** Integrated WebMCP endpoints enabling autonomous coding agents to discover debugging problems, submit patches, and verify test assertions programmatically.
+* **Agent Readiness Discovery (ARD):** Exposes `/.well-known/ard.json`, `/poppy.json`, and `/llms.txt` documenting platform capabilities and problem schemas for AI agents.
+* **Markdown Content Negotiation:** Returns structured markdown for API and agent consumers using `Accept: text/markdown`.
+
+### **9.3 Multi-Tier Monetization & Resilient Free-Tier Fallback**
+* **Ad Network Integration:** Monetag meta tags and container scripts, Google AdSense ad units backed by an authoritative `ads.txt` and rigid Content Security Policy (CSP).
+* **Shuffled OpenRouter Free Model Fallback:** Automatic zero-cost fallback rotating across free OpenRouter models (Gemini Flash, Llama 3) whenever API balance is exhausted.

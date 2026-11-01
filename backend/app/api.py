@@ -22,8 +22,19 @@ from app.auth import (
 from app.config import settings
 from app.db import get_db
 from app.limits import rate_limit
-from app.models import AuthSession, Bookmark, Discussion, Hint, Problem, ProblemSubmission, Reply, Submission, User, Vote, now
-from app.sitemap import generate_robots_txt, generate_sitemap_xml
+from app.models import (
+    AuthSession,
+    Bookmark,
+    Discussion,
+    Hint,
+    Problem,
+    ProblemSubmission,
+    Reply,
+    Submission,
+    User,
+    Vote,
+    now,
+)
 from app.schemas import (
     AdminReviewAction,
     DiscussionCreate,
@@ -35,6 +46,7 @@ from app.schemas import (
     ReplyCreate,
     SubmissionCreate,
 )
+from app.sitemap import generate_robots_txt, generate_sitemap_xml
 from app.tasks import evaluate, hint_task
 
 router = APIRouter(prefix="/api")

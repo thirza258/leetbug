@@ -43,7 +43,7 @@ def personal_stats(db, user):
     daily = Counter(row.created_at.date() for row in rows if row.kind == "submit" and row.status in TERMINAL)
     categories = [{"category": category, "solved": sum(p.id in solved and p.category == category for p in problems),
                    "total": sum(p.category == category for p in problems)}
-                  for category in ["runtime", "logic", "business", "edge", "system_design"]]
+                  for category in ["runtime", "logic", "business", "edge", "system_design", "data_science", "data_analytics"]]
     return {**summary(rows), "solved": len(solved), "total_problems": len(problems), "streak": streak,
             "categories": categories,
             "activity": [{"date": (today - timedelta(days=offset)).isoformat(),

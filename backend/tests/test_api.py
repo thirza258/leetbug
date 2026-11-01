@@ -7,6 +7,7 @@ from app import seed, tasks
 from app.catalog import CATALOG
 from app.config import settings
 from app.models import Activity, Bookmark, Hint, Problem, Submission, now
+from app.sitemap import COURSES, STATIC_PAGES
 
 
 def create_attempt(db_factory, member, *, status="failed", kind="submit", mode="manual", problem_id=1):
@@ -45,7 +46,7 @@ def test_origin_and_payload_limits(client):
 
 def test_catalog_filters_and_no_private_oracles(client, member):
     response = client.get("/api/problems").json()
-    assert response["total"] == len(CATALOG) == 324
+    assert response["total"] == len(CATALOG) == 344
     assert len(response["items"]) == 20
     second_page = client.get("/api/problems?page=2").json()
     assert len(second_page["items"]) == 20
@@ -61,12 +62,14 @@ def test_catalog_filters_and_no_private_oracles(client, member):
     assert pages[6]["items"][0]["slug"] == "circuit-breaker-cooldown"
     assert pages[11]["items"][0]["slug"] == "bounded-admission-queue"
     assert pages[13]["items"][10]["slug"] == "autoscaler-ceiling-replicas"
-    assert pages[-1]["items"][-1]["slug"] == "smooth-weighted-round-robin"
+    assert pages[-1]["items"][-1]["slug"] == "retry-duplicate-events"
     assert client.get(f"/api/problems?page={page_count + 1}").json()["items"] == []
     assert client.get("/api/meta").json()["problem_count"] == len(CATALOG)
     for category in ("runtime", "logic", "business", "edge"):
         assert client.get(f"/api/problems?category={category}").json()["total"] == 69
     assert client.get("/api/problems?category=system_design").json()["total"] == 48
+    assert client.get("/api/problems?category=data_science").json()["total"] == 10
+    assert client.get("/api/problems?category=data_analytics").json()["total"] == 10
     assert client.get("/api/problems?category=business&language=python&difficulty=medium").json()["total"] == sum(
         item["category"] == "business" and "python" in item["starters"] and item["difficulty"] == "medium"
         for item in CATALOG
@@ -91,7 +94,7 @@ def test_catalog_filters_and_no_private_oracles(client, member):
         assert len(expanded["public_tests"]) == sum(not test["hidden"] for test in item["tests"])
 
 
-@pytest.mark.parametrize("original_count", [40, 100, 101, 121, 221, 271])
+@pytest.mark.parametrize("original_count", [40, 100, 101, 121, 221, 271, 324])
 def test_catalog_upgrade_preserves_existing_content_and_progress(db_factory, client, member, original_count):
     submission_id = create_attempt(db_factory, member, status="passed", problem_id=original_count)
     with db_factory() as db:
@@ -124,6 +127,8 @@ def test_system_design_discovery_and_progress(client, member, db_factory):
     create_attempt(db_factory, member, status="passed", problem_id=problem["id"])
     stats = client.get("/api/analytics/me").json()
     assert {"category": "system_design", "total": 48, "solved": 1} in stats["categories"]
+    assert {"category": "data_science", "total": 10, "solved": 0} in stats["categories"]
+    assert {"category": "data_analytics", "total": 10, "solved": 0} in stats["categories"]
     assert sum(category["total"] for category in stats["categories"]) == stats["total_problems"]
     solutions = client.get(f"/api/problems/{problem['slug']}/solutions").json()
     assert set(solutions["solutions"]) == {"python", "javascript"}
@@ -273,7 +278,9 @@ def test_robots_and_sitemap(client):
         assert res.status_code == 200
         assert "application/xml" in res.headers["content-type"]
         assert "<urlset xmlns=\"http://www.sitemaps.org/schemas/sitemap/0.9\">" in res.text
-        assert res.text.count("<url>") == 282
+        assert res.text.count("<url>") == len(STATIC_PAGES) + sum(
+            1 + len(course["lessons"]) for course in COURSES
+        ) + len(CATALOG)
         assert "/problems/missing-last-item" in res.text
         assert "/courses/finding-the-bug" in res.text
 

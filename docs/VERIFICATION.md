@@ -1,5 +1,16 @@
 # Verification results
 
+## 344 problems — October 29, 2026
+
+Added **20 problems** as IDs 325–344: ten data science and ten data analytics cases, all Python. Each has a single-fragment defect, three progressive hints, a reference solution, and five or six independently authored expected results (116 in total, 76 hidden). The complete catalog now has **344 problems, 382 language variants, and 1,950 test cases**, including 1,262 hidden cases. The first 324 definitions are unchanged.
+
+| Check | Result |
+| --- | --- |
+| Backend | 331 tests passed, including reference and public-reproducer checks for all 20 additions, category totals, and an upgrade from 324 problems. Ruff passed. |
+| Catalog integrity | 40/40 in-process checks passed: every starter fails a public case, and every reference solution passes all five or six cases. |
+| Frontend | TypeScript and ESLint passed (`npm run check`). |
+| Not run | Real sandbox execution and Playwright browser flows were not rerun for this expansion; the new cases were validated in process. |
+
 ## 324 problems — September 28, 2026
 
 Added **53 problems** as IDs 272–324: ten each for runtime, logic, business flow, and edge cases, plus thirteen for system design, the smallest category. By language there are 27 Python, 7 Java, 7 JavaScript, 6 Go, and 6 C++ problems. Each has a single-fragment defect, three progressive hints, a reference solution, and five or six independently authored expected results (277 in total, 171 hidden). The complete catalog now has **324 problems, 362 language variants, and 1,834 test cases**, including 1,186 hidden cases. Categories hold 69 problems each, with 48 for system design. The first 271 definitions are unchanged.

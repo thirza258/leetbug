@@ -7,6 +7,7 @@ from textwrap import dedent
 from app.catalog_extra import ADDITIONAL_CATALOG
 from app.catalog_extra.wave2 import SECOND_WAVE
 from app.catalog_extra.wave3 import THIRD_WAVE
+from app.catalog_extra.wave4 import FOURTH_WAVE
 
 
 def code(source: str) -> str:
@@ -5761,3 +5762,5 @@ CATALOG.extend(ADDITIONAL_CATALOG)
 CATALOG.extend(SECOND_WAVE)
 # IDs 272–324 append the third wave after them.
 CATALOG.extend(THIRD_WAVE)
+# IDs 325–344 append data science and data analytics after them.
+CATALOG.extend(FOURTH_WAVE)

@@ -1,4 +1,4 @@
-import { Braces, BriefcaseBusiness, CornerDownRight, Network, Zap } from 'lucide-react';
+import { BarChart3, Braces, BrainCircuit, BriefcaseBusiness, CornerDownRight, Network, Zap } from 'lucide-react';
 import type { Category, Language, Status } from '../types';
 
 export const languageNames: Record<Language, string> = { python: 'Python', java: 'Java', javascript: 'JavaScript', cpp: 'C++', go: 'Go' };
@@ -8,6 +8,8 @@ export const categories = {
   business: { name: 'Business flow', short: 'Business flow', description: 'Protect the bigger picture.', icon: BriefcaseBusiness, color: 'blue' },
   edge: { name: 'Edge & corner cases', short: 'Edge cases', description: 'Expect the unexpected.', icon: CornerDownRight, color: 'amber' },
   system_design: { name: 'System design', short: 'System design', description: 'Choose for the requirements.', icon: Network, color: 'green' },
+  data_science: { name: 'Data science', short: 'Data science', description: 'Fix the model and its evaluation.', icon: BrainCircuit, color: 'indigo' },
+  data_analytics: { name: 'Data analytics', short: 'Data analytics', description: 'Make the numbers tell the truth.', icon: BarChart3, color: 'teal' },
 } satisfies Record<Category, { name: string; short: string; description: string; icon: typeof Zap; color: string }>;
 export const statusNames: Record<Status, string> = {
   queued: 'Queued', running: 'Evaluating', passed: 'Passed', failed: 'Failed', runtime_error: 'Runtime error',

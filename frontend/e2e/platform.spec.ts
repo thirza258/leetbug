@@ -11,34 +11,34 @@ test('catalog filtering, navigation, and mobile layout', async ({ page }) => {
   await page.reload();
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
   await expect(page.locator('.problem-table tbody tr')).toHaveCount(20);
-  await expect(page.locator('.catalog-footer')).toContainText('324 case studies');
+  await expect(page.locator('.catalog-footer')).toContainText('344 case studies');
   await page.screenshot({ path: '../artifacts/library-dark.png', fullPage: true });
   await page.getByRole('button', { name: 'Switch to light theme' }).click();
   const caseNumbers = await page.locator('.problem-number').allTextContents();
-  for (let current = 2; current <= 16; current++) {
+  for (let current = 2; current <= 17; current++) {
     await page.getByRole('button', { name: 'Next page', exact: true }).click();
     await expect(page).toHaveURL(`/?page=${current}`);
     await expect(page.locator('.problem-table tbody tr')).toHaveCount(20);
     await expect(page.locator('.problem-number').first()).toHaveText(`${(current - 1) * 20 + 1}.`);
     caseNumbers.push(...await page.locator('.problem-number').allTextContents());
   }
-  expect(new Set(caseNumbers).size).toBe(320);
+  expect(new Set(caseNumbers).size).toBe(340);
   await page.getByRole('button', { name: 'Next page', exact: true }).click();
-  await expect(page).toHaveURL('/?page=17');
+  await expect(page).toHaveURL('/?page=18');
   await expect(page.locator('.problem-table tbody tr')).toHaveCount(4);
-  await expect(page.getByRole('link', { name: /Weighted round robin sends everything to the heaviest server/ })).toBeVisible();
+  await expect(page.getByRole('link', { name: /Retried events inflate the totals/ })).toBeVisible();
   caseNumbers.push(...await page.locator('.problem-number').allTextContents());
-  expect(new Set(caseNumbers).size).toBe(324);
+  expect(new Set(caseNumbers).size).toBe(344);
   await expect(page.getByRole('button', { name: 'Next page', exact: true })).toBeDisabled();
-  await page.getByRole('link', { name: /Weighted round robin sends everything to the heaviest server/ }).click();
-  await expect(page.getByRole('heading', { name: 'Weighted round robin sends everything to the heaviest server', exact: true })).toBeVisible();
+  await page.getByRole('link', { name: /Retried events inflate the totals/ }).click();
+  await expect(page.getByRole('heading', { name: 'Retried events inflate the totals', exact: true })).toBeVisible();
   await expect(page.locator('.monaco-editor')).toBeVisible();
   await page.goBack();
+  await expect(page).toHaveURL('/?page=18');
+  await page.getByRole('button', { name: 'Previous page', exact: true }).click();
   await expect(page).toHaveURL('/?page=17');
   await page.getByRole('button', { name: 'Previous page', exact: true }).click();
   await expect(page).toHaveURL('/?page=16');
-  await page.getByRole('button', { name: 'Previous page', exact: true }).click();
-  await expect(page).toHaveURL('/?page=15');
   await page.setViewportSize({ width: 390, height: 844 });
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
   await page.screenshot({ path: '../artifacts/library-expanded-mobile.png', fullPage: true, animations: 'disabled' });

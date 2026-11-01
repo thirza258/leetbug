@@ -13,6 +13,8 @@ const categories: { value: Category; label: string }[] = [
   { value: 'business', label: 'Business flow' },
   { value: 'edge', label: 'Edge & corner cases' },
   { value: 'system_design', label: 'System design' },
+  { value: 'data_science', label: 'Data science' },
+  { value: 'data_analytics', label: 'Data analytics' },
 ];
 const languages: { value: Language; label: string }[] = [
   { value: 'python', label: 'Python' },

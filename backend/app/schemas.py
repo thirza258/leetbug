@@ -57,7 +57,7 @@ class ProblemSubmissionCreate(BaseModel):
     title: str = Field(min_length=5, max_length=150)
     summary: str = Field(min_length=10, max_length=500)
     description: str = Field(min_length=20, max_length=10000)
-    category: str = Field(pattern=r"^(runtime|logic|business|edge|system_design)$")
+    category: str = Field(pattern=r"^(runtime|logic|business|edge|system_design|data_science|data_analytics)$")
     difficulty: str = Field(pattern=r"^(easy|medium|hard)$")
     tags: list[str] = Field(default_factory=list, max_length=5)
     language: Language
