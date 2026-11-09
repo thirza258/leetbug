@@ -25,3 +25,11 @@ def get_db():
     with SessionLocal() as db:
         yield db
 
+
+
+def open_session():
+    """Open a session through the module attribute, so tests can substitute ``app.db.SessionLocal``.
+
+    Background tasks in feature packages must use this instead of importing ``SessionLocal`` directly.
+    """
+    return SessionLocal()

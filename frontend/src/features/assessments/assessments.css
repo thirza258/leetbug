@@ -1,0 +1,104 @@
+/* Assessment mode (PRD §9). Uses the shared design tokens, so light and dark themes follow automatically. */
+.asm-card-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 16px; margin-bottom: 26px; }
+.asm-tile { display: flex; flex-direction: column; gap: 12px; }
+.asm-tile h2 { font-size: 18px; line-height: 1.3; }
+.asm-tile h2 a:hover { color: var(--purple); }
+.asm-tile > p { font-size: 13px; line-height: 1.6; flex: 1; }
+.asm-tile-top, .asm-badges { display: flex; flex-wrap: wrap; gap: 6px; }
+.asm-badges .small-tag { gap: 5px; }
+.asm-tag-open { color: var(--purple); border-color: color-mix(in srgb, var(--purple) 35%, var(--line)); }
+.asm-tile-actions { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 4px; }
+.asm-facts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin: 0; font-size: 12px; }
+.asm-facts dt { color: var(--muted); margin-bottom: 4px; }
+.asm-facts dd { margin: 0; color: var(--text); }
+.asm-facts.stacked { grid-template-columns: 1fr; gap: 12px; margin-bottom: 20px; }
+.asm-facts.stacked > div { display: flex; justify-content: space-between; gap: 16px; border-bottom: 1px solid var(--line); padding-bottom: 10px; }
+.asm-facts.stacked dd { text-align: right; }
+.asm-history { margin-top: 10px; }
+.asm-history .muted { font-size: 12px; margin-top: 4px; }
+.asm-status { display: inline-flex; padding: 3px 7px; border-radius: 4px; font-size: 12px; background: var(--panel-soft); color: var(--text); text-transform: capitalize; white-space: nowrap; }
+.asm-status.active, .asm-status.in_progress, .asm-status.attempted, .asm-status.draft { background: var(--selected); color: var(--purple); }
+.asm-status.completed, .asm-status.solved, .asm-status.published { background: var(--positive-soft); color: var(--green); }
+.asm-status.expired, .asm-status.not_started, .asm-status.archived { background: var(--warning-soft); color: var(--amber); }
+.asm-status.cancelled { background: var(--negative-soft); color: var(--coral); }
+.asm-detail-head { margin: 22px 0 26px; display: flex; flex-direction: column; gap: 12px; align-items: flex-start; }
+.asm-detail-head h1 { font-size: 32px; letter-spacing: -.03em; }
+.asm-detail-head p { font-size: 14px; max-width: 720px; line-height: 1.6; }
+.asm-detail-grid { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); gap: 16px; align-items: start; }
+.asm-rules { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 12px; }
+.asm-rules li { display: flex; gap: 10px; font-size: 13px; line-height: 1.6; }
+.asm-rules li svg { flex-shrink: 0; margin-top: 4px; color: var(--purple); }
+.asm-last-report { margin-top: 14px; }
+.asm-runner { padding: 0 22px 22px; }
+.asm-runner-bar { display: flex; align-items: center; gap: 14px; min-height: 58px; flex-wrap: wrap; padding: 8px 0; }
+.asm-runner-title { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.asm-runner-title strong { display: block; font-size: 14px; font-weight: 600; }
+.asm-runner-title span { font-size: 12px; color: var(--muted); }
+.asm-challenge-nav { display: flex; gap: 6px; flex-wrap: wrap; margin-left: auto; }
+.asm-step { display: inline-flex; align-items: center; gap: 5px; border: 1px solid var(--line); background: var(--panel); color: var(--text); border-radius: 6px; padding: 5px 9px; font-size: 12px; }
+.asm-step.solved { color: var(--green); }
+.asm-step[aria-current] { border-color: var(--purple); background: var(--selected); color: var(--purple); }
+.asm-timer { display: inline-flex; align-items: center; gap: 6px; font-family: 'JetBrains Mono', monospace; font-size: 15px; padding: 6px 10px; border: 1px solid var(--line); border-radius: 6px; background: var(--panel); font-variant-numeric: tabular-nums; }
+.asm-timer.urgent { color: var(--coral); border-color: color-mix(in srgb, var(--coral) 45%, var(--line)); background: var(--negative-soft); }
+.asm-attempts { font-size: 12px; color: var(--muted); }
+.asm-accepted { padding: 0 15px 15px; display: flex; flex-direction: column; gap: 12px; }
+.asm-note { margin: 0; }
+.asm-hint { border-top: 1px solid var(--line); }
+.asm-hint .hint-footer { border-top: 0; }
+.asm-hint-text { padding: 0 17px 15px; font-size: 13px; line-height: 1.7; white-space: pre-wrap; }
+.asm-modal-text { font-size: 13px; color: var(--muted); line-height: 1.6; margin-bottom: 14px; }
+.asm-modal-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 8px; flex-wrap: wrap; }
+.asm-report { display: flex; flex-direction: column; gap: 18px; }
+.asm-report .stat-grid { margin-bottom: 0; }
+.asm-report-head { display: flex; justify-content: space-between; align-items: flex-end; gap: 20px; flex-wrap: wrap; }
+.asm-report-head h1 { font-size: 30px; margin: 12px 0 8px; letter-spacing: -.03em; }
+.asm-report-head p { font-size: 13px; }
+.asm-export { display: flex; gap: 8px; flex-wrap: wrap; }
+.asm-section .history-table-wrap { padding: 0; }
+.asm-challenge-table td .muted { font-size: 11px; margin-top: 4px; }
+.asm-competencies { display: flex; flex-direction: column; gap: 16px; margin-top: 10px; }
+.asm-score-bar > div:first-child { display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 7px; }
+.asm-score-bar strong { font-weight: 500; }
+.asm-score-bar .progress-track span { color: var(--purple); }
+.asm-score-bar small { display: block; color: var(--muted); font-size: 11px; margin-top: 5px; }
+.asm-profile { margin-top: 16px; font-size: 12px; }
+.asm-areas { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px; }
+.asm-areas article { border: 1px solid var(--line); border-radius: 8px; padding: 14px; display: flex; flex-direction: column; gap: 8px; font-size: 13px; line-height: 1.6; }
+.asm-areas article p { color: var(--muted); }
+.asm-practice { display: flex; flex-direction: column; gap: 4px; }
+.asm-practice a { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; color: var(--purple); }
+.asm-notes .asm-rules li { color: var(--muted); }
+.asm-form { display: flex; flex-direction: column; gap: 16px; }
+.asm-form .modal-heading { margin-bottom: 4px; }
+.asm-form-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; }
+.asm-fieldset { border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px; display: flex; flex-wrap: wrap; gap: 10px 18px; margin: 0; }
+.asm-fieldset legend { font-size: 12px; color: var(--muted); padding: 0 4px; }
+.asm-check { flex-direction: row; align-items: center; gap: 8px; font-weight: 400; font-size: 13px; }
+.asm-check input { width: auto; }
+.asm-weights { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; width: 100%; }
+.asm-weights label { font-size: 12px; }
+.asm-selected-row td { background: var(--selected); }
+.asm-manager { margin-top: 18px; display: flex; flex-direction: column; gap: 14px; }
+.asm-subheading { font-size: 13px; font-weight: 600; margin-top: 6px; }
+.asm-errors { margin: 0; padding-left: 28px; }
+.asm-invite { display: flex; gap: 10px; align-items: flex-start; }
+.asm-invite textarea { flex: 1; }
+.asm-created { flex-direction: column; align-items: stretch; }
+.asm-link-row { display: flex; align-items: center; gap: 10px; margin-top: 8px; font-size: 12px; flex-wrap: wrap; }
+.asm-link-row code { font-size: 11px; word-break: break-all; flex: 1; min-width: 0; }
+@media (max-width: 900px) {
+  .asm-detail-grid { grid-template-columns: 1fr; }
+  .asm-runner { padding: 0 14px 20px; }
+}
+@media (max-width: 700px) {
+  .asm-card-grid { grid-template-columns: 1fr; }
+  .asm-facts { grid-template-columns: 1fr; }
+  .asm-detail-head h1, .asm-report-head h1 { font-size: 25px; }
+  .asm-runner { padding: 0 10px 20px; }
+  .asm-runner-bar { gap: 10px; }
+  .asm-challenge-nav { margin-left: 0; order: 3; width: 100%; }
+  .asm-timer { margin-left: auto; }
+  .asm-weights { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .asm-invite { flex-direction: column; align-items: stretch; }
+  .asm-tile-actions { flex-wrap: wrap; }
+}

@@ -6,6 +6,7 @@ from sqlalchemy import delete, func, or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from app import attempts, policy, taxonomy
 from app.analytics import TERMINAL, leaderboard_rows, personal_stats, platform_stats
 from app.auth import (
     COOKIE,
@@ -21,6 +22,7 @@ from app.auth import (
 )
 from app.config import settings
 from app.db import get_db
+from app.events import record_event
 from app.limits import rate_limit
 from app.models import (
     AuthSession,
@@ -52,16 +54,19 @@ from app.tasks import evaluate, hint_task
 router = APIRouter(prefix="/api")
 
 
-def get_problem(db, slug):
+def get_problem(db, slug, user=None):
+    """Look up a problem the user may see. Non-public problems are reported as missing."""
     problem = db.scalar(select(Problem).where(Problem.slug == slug))
-    if not problem:
+    if not problem or not policy.can_view_problem(db, user, problem):
         raise HTTPException(404, "Case study not found.")
     return problem
 
 
 def has_solved(db, user_id, problem_id):
+    # Assessment work never unlocks practice solutions or library progress.
     return bool(db.scalar(select(Submission.id).where(Submission.user_id == user_id,
                                                      Submission.problem_id == problem_id,
+                                                     Submission.assessment_session_id.is_(None),
                                                      Submission.kind == "submit", Submission.status == "passed").limit(1)))
 
 
@@ -76,7 +81,8 @@ def problem_summary(problem, solved=False, attempted=False, bookmarked=False, ac
 def submission_view(submission, problem):
     return {key: getattr(submission, key) for key in (
         "id", "problem_id", "language", "mode", "kind", "code", "prompt", "generated_code", "status", "results",
-        "error", "runtime_ms", "memory_kb", "turnaround_ms", "llm_tokens", "prompt_words", "shared", "created_at", "completed_at"
+        "error", "runtime_ms", "memory_kb", "turnaround_ms", "llm_tokens", "prompt_words", "shared", "created_at", "completed_at",
+        "attempt_id", "assessment_session_id", "diagnosis_id", "diff_stats", "quality",
     )} | {"problem_title": problem.title, "problem_slug": problem.slug}
 
 
@@ -99,7 +105,14 @@ def meta(db: Session = Depends(get_db)):
             "ai_enabled": settings.ai_enabled, "ai_provider": settings.ai_provider,
             "ai_model": settings.ai_model if settings.ai_enabled else None,
             "hint_failure_threshold": settings.hint_failure_threshold, "demo_available": settings.seed_demo_user,
-            "problem_count": db.scalar(select(func.count()).select_from(Problem))}
+            "problem_count": db.scalar(select(func.count()).select_from(Problem).where(Problem.visibility == "public")),
+            "features": {"diagnosis": True, "incidents": True, "assessments": True, "adaptive_ai": True,
+                         "mutation_testing": True, "organizations": True}}
+
+
+@router.get("/taxonomy")
+def taxonomy_view():
+    return taxonomy.taxonomy_document()
 
 
 @router.post("/auth/register", status_code=201)
@@ -157,13 +170,14 @@ def problems(q: str = Query("", max_length=100), category: str = "", difficulty:
              sort: Literal["recommended", "difficulty", "title"] = "recommended",
              page: int = Query(1, ge=1), limit: int = Query(20, ge=1, le=100),
              user: User | None = Depends(optional_user), db: Session = Depends(get_db)):
-    query = select(Problem).order_by(Problem.id)
+    query = select(Problem).where(Problem.visibility == "public").order_by(Problem.id)
     if category:
         query = query.where(Problem.category == category)
     if difficulty:
         query = query.where(Problem.difficulty == difficulty)
     rows = list(db.scalars(query))
-    own = list(db.scalars(select(Submission).where(Submission.user_id == user.id))) if user else []
+    own = list(db.scalars(select(Submission).where(Submission.user_id == user.id,
+                                                   Submission.assessment_session_id.is_(None)))) if user else []
     solved = {r.problem_id for r in own if r.status == "passed" and r.kind == "submit"}
     attempted = {r.problem_id for r in own}
     saved = set(db.scalars(select(Bookmark.problem_id).where(Bookmark.user_id == user.id))) if user else set()
@@ -195,25 +209,35 @@ def problems(q: str = Query("", max_length=100), category: str = "", difficulty:
             "tags": sorted({tag for p in rows for tag in p.tags})}
 
 
-@router.get("/problems/{slug}")
-def problem_detail(slug: str, user: User | None = Depends(optional_user), db: Session = Depends(get_db)):
-    problem = get_problem(db, slug)
-    solved = has_solved(db, user.id, problem.id) if user else False
+def problem_payload(db, problem, user=None, *, include_progress=True):
+    """Public problem detail. Never includes solutions, hidden tests, hints, explanations or rubrics."""
+    solved = has_solved(db, user.id, problem.id) if user and include_progress else False
     failures = db.scalar(select(func.count()).select_from(Submission).where(
         Submission.user_id == user.id, Submission.problem_id == problem.id,
         Submission.status.in_(TERMINAL - {"passed"}))) if user else 0
+    assistance = policy.assistance_for(db, user, problem) if user else policy.Assistance()
     return {**problem_summary(problem, solved, failures > 0,
                                bool(db.get(Bookmark, (user.id, problem.id))) if user else False),
             "description": problem.description, "requirements": problem.requirements, "starters": problem.starters,
             "public_tests": [{"name": t["name"], "input": t["input"], "expected": t["expected"], "assertions": t["assertions"]}
                              for t in problem.tests if not t["hidden"]],
             "hidden_test_count": sum(t["hidden"] for t in problem.tests), "failed_attempts": failures,
-            "hints_unlocked": failures >= settings.hint_failure_threshold}
+            "hints_unlocked": failures >= settings.hint_failure_threshold and policy.hint_level_cap(assistance) != 0,
+            "visibility": problem.visibility, "version": problem.version, "diagnosis_mode": problem.diagnosis_mode,
+            "diagnosis_required": problem.diagnosis_mode == "required" or assistance.source == "assessment" and bool(
+                ((assistance.session.config_snapshot or {}).get("configuration") or {}).get("diagnosis_required")),
+            "taxonomy": taxonomy.describe(taxonomy.classify_problem(problem)),
+            "assistance": assistance.as_dict()}
+
+
+@router.get("/problems/{slug}")
+def problem_detail(slug: str, user: User | None = Depends(optional_user), db: Session = Depends(get_db)):
+    return problem_payload(db, get_problem(db, slug, user), user)
 
 
 @router.post("/problems/{slug}/bookmark")
 def bookmark(slug: str, user: User = Depends(current_user), db: Session = Depends(get_db)):
-    problem = get_problem(db, slug)
+    problem = get_problem(db, slug, user)
     existing = db.get(Bookmark, (user.id, problem.id))
     if existing:
         db.delete(existing)
@@ -228,7 +252,10 @@ def bookmark(slug: str, user: User = Depends(current_user), db: Session = Depend
 
 @router.get("/problems/{slug}/solutions")
 def solutions(slug: str, user: User = Depends(current_user), db: Session = Depends(get_db)):
-    problem = get_problem(db, slug)
+    problem = get_problem(db, slug, user)
+    locked = policy.solutions_locked(db, user, problem)
+    if locked:
+        raise HTTPException(403, locked)
     if not has_solved(db, user.id, problem.id):
         raise HTTPException(403, "Pass all public and hidden tests with Submit Fix to unlock solutions.")
     shared = db.execute(select(Submission, User.username).join(User, Submission.user_id == User.id)
@@ -245,22 +272,47 @@ def solutions(slug: str, user: User = Depends(current_user), db: Session = Depen
 def submit(data: SubmissionCreate, user: User = Depends(current_user), db: Session = Depends(get_db)):
     rate_limit(f"submit:{user.id}", 20)
     problem = db.get(Problem, data.problem_id)
-    if not problem or data.language not in problem.starters:
+    if not problem or not policy.can_view_problem(db, user, problem) or data.language not in problem.starters:
         raise HTTPException(422, "That language is not available for this case study.")
+    context = attempts.resolve_context(db, user, problem, assessment_session_id=data.assessment_session_id,
+                                       incident_session_id=data.incident_session_id)
+    assistance = policy.assistance_for(db, user, problem, context.assessment_session)
+    if context.assessment_session is not None:
+        configuration = (context.assessment_session.config_snapshot or {}).get("configuration", {})
+        allowed = configuration.get("languages") or []
+        if allowed and data.language not in allowed:
+            raise HTTPException(422, "That language is not allowed in this assessment.")
+        limit = configuration.get("max_attempts")
+        if data.kind == "submit" and limit and db.scalar(select(func.count()).select_from(Submission).where(
+                Submission.attempt_id == context.attempt.id, Submission.kind == "submit")) >= int(limit):
+            raise HTTPException(409, f"This assessment allows {limit} submissions per challenge.")
     if data.mode == "ai":
+        policy.ensure_ai_allowed(assistance, generation=True)
         if not settings.ai_enabled:
             raise HTTPException(503, "AI fixes need a configured OpenRouter or Ollama model.")
         if len(data.prompt.strip()) < 10:
             raise HTTPException(422, "Describe the bug and intended fix in at least 10 characters.")
         rate_limit(f"ai:{user.id}", 10)
+    diagnosis = attempts.latest_diagnosis(db, context.attempt.id)
+    if data.kind == "submit" and diagnosis is None and attempts.diagnosis_required(problem, context):
+        raise HTTPException(428, "Submit your diagnosis of the root cause before submitting a fix.")
     # Lock the account row so simultaneous requests cannot exceed the active job cap.
     db.scalar(select(User).where(User.id == user.id).with_for_update())
     pending = db.scalar(select(func.count()).select_from(Submission).where(
         Submission.user_id == user.id, Submission.status.in_(["queued", "running"])))
     if pending >= 2:
         raise HTTPException(409, "Wait for your current evaluations to finish before starting another.")
-    submission = Submission(user_id=user.id, **data.model_dump(), prompt_words=len(data.prompt.split()))
+    submission = Submission(user_id=user.id, **data.model_dump(exclude={"assessment_session_id", "incident_session_id"}),
+                            prompt_words=len(data.prompt.split()), attempt_id=context.attempt.id,
+                            assessment_session_id=context.assessment_session.id if context.assessment_session else None,
+                            diagnosis_id=diagnosis.id if diagnosis else None,
+                            diff_stats=attempts.diff_stats(problem.starters.get(data.language, ""), data.code))
     db.add(submission)
+    db.flush()
+    record_event(db, "submission.created", user_id=user.id, problem_id=problem.id, attempt_id=context.attempt.id,
+                 assessment_session_id=submission.assessment_session_id,
+                 incident_session_id=context.incident_session.id if context.incident_session else None,
+                 kind=data.kind, mode=data.mode, language=data.language, submission_id=submission.id)
     db.commit()
     record_activity(db, user)
     enqueue(db, evaluate, submission)
@@ -300,10 +352,16 @@ def share_submission(submission_id: str, user: User = Depends(current_user), db:
 
 
 @router.post("/problems/{slug}/hints", status_code=202)
+@router.post("/problems/{slug}/adaptive-hint", status_code=202)
 def request_hint(slug: str, data: HintCreate, user: User = Depends(current_user), db: Session = Depends(get_db)):
-    problem = get_problem(db, slug)
+    problem = get_problem(db, slug, user)
     if data.language not in problem.starters:
         raise HTTPException(422, "Choose a supported language.")
+    context = attempts.resolve_context(db, user, problem, assessment_session_id=data.assessment_session_id,
+                                       incident_session_id=data.incident_session_id)
+    assistance = policy.assistance_for(db, user, problem, context.assessment_session)
+    if policy.hint_level_cap(assistance) == 0:
+        raise HTTPException(403, "Hints are disabled for this assessment.")
     failures = db.scalar(select(func.count()).select_from(Submission).where(
         Submission.user_id == user.id, Submission.problem_id == problem.id,
         Submission.status.in_(TERMINAL - {"passed"})))
@@ -311,17 +369,29 @@ def request_hint(slug: str, data: HintCreate, user: User = Depends(current_user)
         raise HTTPException(403, f"Hints unlock after {settings.hint_failure_threshold} unsuccessful evaluations.")
     rate_limit(f"hint:{user.id}", 5)
     db.scalar(select(User).where(User.id == user.id).with_for_update())
-    existing = db.scalar(select(Hint).where(Hint.user_id == user.id, Hint.problem_id == problem.id,
-                                           Hint.language == data.language, Hint.status.in_(["queued", "running"])))
+    scope = [Hint.user_id == user.id, Hint.problem_id == problem.id, Hint.language == data.language,
+             Hint.assessment_session_id == context.assessment_session.id if context.assessment_session
+             else Hint.assessment_session_id.is_(None)]
+    existing = db.scalar(select(Hint).where(*scope, Hint.status.in_(["queued", "running"])))
     if existing:
         return hint_view(existing)
-    previous = list(db.scalars(select(Hint).where(Hint.user_id == user.id, Hint.problem_id == problem.id,
-                                                Hint.language == data.language, Hint.status == "completed")
-                               .order_by(Hint.level)))
+    previous = list(db.scalars(select(Hint).where(*scope, Hint.status == "completed").order_by(Hint.level)))
     if previous and previous[-1].level >= len(problem.hints):
         return hint_view(previous[-1])
-    hint = Hint(user_id=user.id, problem_id=problem.id, language=data.language, level=len(previous) + 1)
+    level = len(previous) + 1
+    if previous:
+        try:
+            policy.ensure_hint_allowed(assistance, level)
+        except HTTPException:
+            return hint_view(previous[-1])
+    hint = Hint(user_id=user.id, problem_id=problem.id, language=data.language, level=level,
+                attempt_id=context.attempt.id,
+                assessment_session_id=context.assessment_session.id if context.assessment_session else None,
+                context={"code": data.code} if data.code else None)
     db.add(hint)
+    db.flush()
+    record_event(db, "hint.requested", user_id=user.id, problem_id=problem.id, attempt_id=context.attempt.id,
+                 assessment_session_id=hint.assessment_session_id, level=level)
     db.commit()
     enqueue(db, hint_task, hint)
     return hint_view(hint)

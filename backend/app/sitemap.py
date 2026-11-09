@@ -73,6 +73,8 @@ STATIC_PAGES = [
     ("guide", "monthly", "0.8"),
     ("leaderboard", "daily", "0.7"),
     ("discussions", "daily", "0.7"),
+    ("incidents", "weekly", "0.8"),
+    ("assessments", "weekly", "0.7"),
 ]
 
 
@@ -86,7 +88,10 @@ def generate_robots_txt(base_url: str | None = None) -> str:
         "Disallow: /register\n"
         "Disallow: /progress\n"
         "Disallow: /submissions\n"
-        "Disallow: /discussions/new\n\n"
+        "Disallow: /discussions/new\n"
+        "Disallow: /assessment-sessions/\n"
+        "Disallow: /assessment-invitations/\n"
+        "Disallow: /admin\n\n"
         f"Sitemap: {url}/sitemap.xml\n"
     )
 

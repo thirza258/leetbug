@@ -3,27 +3,21 @@ import time
 from datetime import timedelta
 
 import docker
-from celery import Celery
 from docker.errors import NotFound
 from sqlalchemy import update
 
+from app import attempts
 from app.auth import utc
+from app.celery_app import celery
 from app.config import settings
 from app.db import SessionLocal
 from app.execution import SandboxUnavailable, execute_code, grade
 from app.llm import AIUnavailable, patch_code
-from app.models import Hint, Problem, Submission, now
+from app.models import AIInteraction, Hint, Problem, Submission, now
 from app.rag import generate_hint
 
 log = logging.getLogger(__name__)
-celery = Celery("leetbug", broker=settings.redis_url, backend=settings.redis_url)
-celery.conf.update(
-    task_serializer="json", result_serializer="json", accept_content=["json"],
-    task_ignore_result=True, task_acks_late=True, task_reject_on_worker_lost=True,
-    worker_prefetch_multiplier=1, task_soft_time_limit=170, task_time_limit=180,
-    broker_connection_retry_on_startup=True, broker_transport_options={"visibility_timeout": 240},
-    beat_schedule={"clean-expired-jobs": {"task": "app.tasks.cleanup", "schedule": 60.0}},
-)
+__all__ = ["celery", "evaluate", "hint_task", "cleanup", "generate_hint"]
 
 
 @celery.task(name="app.tasks.evaluate")
@@ -60,6 +54,14 @@ def evaluate(submission_id):
         submission.completed_at = now()
         submission.turnaround_ms = round((submission.completed_at - utc(submission.created_at)).total_seconds() * 1000, 2)
         db.commit()
+        # Attempt bookkeeping and patch-quality scoring are secondary: a failure here must never
+        # change or block the persisted execution record above.
+        try:
+            attempts.on_submission_complete(db, submission, problem)
+            db.commit()
+        except Exception:
+            db.rollback()
+            log.exception("Post-evaluation scoring failed: %s", submission_id)
 
 
 @celery.task(name="app.tasks.hint")
@@ -71,12 +73,17 @@ def hint_task(hint_id):
             return
         hint = db.get(Hint, hint_id)
         try:
-            result = generate_hint(db.get(Problem, hint.problem_id), hint.language, hint.level)
+            from app.assistant.service import generate_adaptive_hint
+            # The documentation hint generator is passed in so it can be substituted in tests.
+            result = generate_adaptive_hint(db, hint, base=generate_hint)
             hint.text, hint.sources, hint.retrieval = result["text"], result["sources"], result["retrieval"]
             hint.status = "completed"
         except Exception:
             log.exception("Hint failed: %s", hint_id)
             hint.status, hint.error = "error", "The hint could not be generated. Please try again."
+        # Adaptive context may include the user's current code; keep only non-sensitive metadata.
+        if hint.context and "code" in hint.context:
+            hint.context = {key: value for key, value in hint.context.items() if key != "code"}
         db.commit()
 
 
@@ -88,6 +95,9 @@ def cleanup():
                    .values(status="error", error="The worker did not finish this attempt. Please run it again.", completed_at=now()))
         db.execute(update(Hint).where(Hint.status.in_(["queued", "running"]), Hint.created_at < cutoff)
                    .values(status="error", error="The hint worker timed out. Please try again."))
+        db.execute(update(AIInteraction).where(AIInteraction.status.in_(["queued", "running"]),
+                                               AIInteraction.created_at < cutoff)
+                   .values(status="error", error="The assistant timed out. Please try again.", payload=None))
         db.commit()
     client = None
     try:

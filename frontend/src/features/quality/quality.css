@@ -1,0 +1,99 @@
+/* Problem quality and platform health administration (PRD §7, 10.3, 13.4). */
+.qa-page .page-heading { margin-bottom: 18px; }
+.qa-tabs { margin-bottom: 22px; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
+.qa-summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; margin-bottom: 20px; }
+.qa-summary.compact { margin: 18px 0; }
+.qa-stat { display: flex; flex-direction: column; gap: 6px; border: 1px solid var(--line); border-radius: 9px; background: var(--panel); padding: 14px 16px; min-width: 0; }
+.qa-stat > span { display: flex; align-items: center; gap: 6px; color: var(--muted); font-size: 12px; }
+.qa-stat strong { font-size: 24px; font-weight: 500; letter-spacing: -.03em; overflow-wrap: anywhere; }
+.qa-stat small { color: var(--muted); font-size: 11px; }
+.qa-stat.green strong { color: var(--green); }
+.qa-stat.coral strong { color: var(--coral); }
+.qa-filters { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 14px; }
+.qa-filters .search-input { flex: 1 1 260px; }
+.qa-filters select, .qa-start select, .qa-start input, .qa-gate-fields input[type='number'], .qa-inline input, .qa-equivalence input, .qa-page .page-heading select {
+  border: 1px solid var(--line); border-radius: 7px; background: var(--panel); color: var(--text); padding: 8px 10px; font-size: 12px; }
+.qa-table-wrap { width: 100%; overflow-x: auto; border: 1px solid var(--line); border-radius: 9px; background: var(--panel); }
+.qa-table { width: 100%; border-collapse: collapse; text-align: left; font-size: 12px; }
+.qa-table th { font-size: 11px; letter-spacing: .08em; font-weight: 500; color: var(--muted); padding: 10px 12px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+.qa-table td { padding: 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
+.qa-table tr:last-child td { border-bottom: 0; }
+.qa-table tr.selected td { background: var(--selected); }
+.qa-table.qa-dense td { padding: 9px 12px; }
+.qa-title { display: block; font-weight: 500; font-size: 12px; }
+.qa-sub { display: block; color: var(--muted); font-size: 11px; margin-top: 3px; overflow-wrap: anywhere; }
+.qa-sub svg { vertical-align: -2px; }
+.qa-badge { display: inline-flex; align-items: center; gap: 4px; padding: 3px 7px; border-radius: 4px; font-size: 11px; white-space: nowrap; text-transform: capitalize;
+  background: var(--panel-soft); color: var(--muted); }
+.qa-badge.approved { background: var(--positive-soft); color: var(--green); }
+.qa-badge.requires_revision, .qa-badge.error { background: var(--negative-soft); color: var(--coral); }
+.qa-badge.stale, .qa-badge.timeout { background: var(--warning-soft); color: var(--amber); }
+.qa-badge.running, .qa-badge.queued, .qa-badge.equivalent { background: var(--selected); color: var(--purple); }
+.qa-panel { margin-top: 20px; }
+.qa-panel-heading { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; margin-bottom: 16px; }
+.qa-panel-heading h2 { font-size: 18px; font-weight: 500; margin: 6px 0 4px; }
+.qa-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; justify-content: flex-end; }
+.qa-start { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px; padding: 14px 0; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+.qa-start label, .qa-gate-fields label, .qa-inline { display: flex; flex-direction: column; gap: 5px; font-size: 11px; color: var(--muted); }
+.qa-start input[type='number'] { width: 90px; }
+.qa-operators { font-size: 12px; }
+.qa-operators summary { cursor: pointer; padding: 8px 0; }
+.qa-operators > div { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 6px 14px; padding: 6px 0; }
+label.qa-check { flex-direction: row; align-items: center; gap: 7px; color: var(--text); font-size: 12px; }
+.qa-run-list { display: flex; gap: 8px; overflow-x: auto; padding: 14px 0 4px; scrollbar-width: thin; }
+.qa-run-chip { display: flex; flex-direction: column; align-items: flex-start; gap: 5px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); padding: 9px 11px; font-size: 11px; color: var(--text); flex-shrink: 0; }
+.qa-run-chip.active { border-color: var(--purple); background: var(--selected); }
+.qa-run-chip small { color: var(--muted); }
+.qa-history { margin: 8px 0; }
+.qa-run { margin-top: 14px; }
+.qa-run h3, .qa-mutants h3 { font-size: 13px; font-weight: 500; margin-bottom: 10px; }
+.qa-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; margin-bottom: 18px; }
+.qa-steps, .qa-checks, .qa-findings, .qa-rates { list-style: none; margin: 0; padding: 0; }
+.qa-steps li, .qa-checks li { display: flex; gap: 9px; align-items: flex-start; padding: 7px 0; border-bottom: 1px solid var(--line); font-size: 12px; }
+.qa-steps li svg, .qa-checks li svg { flex-shrink: 0; margin-top: 2px; }
+.qa-steps li div, .qa-checks li div { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.qa-steps li strong, .qa-checks li strong { font-weight: 500; text-transform: capitalize; }
+.qa-steps li span, .qa-checks li span { color: var(--muted); font-size: 11px; overflow-wrap: anywhere; }
+.qa-checks li.passed svg { color: var(--green); }
+.qa-checks li.failed svg { color: var(--coral); }
+.qa-page .green { color: var(--green); }
+.qa-page .coral { color: var(--coral); }
+.qa-page .amber { color: var(--amber); }
+.qa-inventory { margin: 0 0 14px; }
+.qa-findings li { font-size: 12px; padding: 6px 10px; border-radius: 6px; margin-bottom: 6px; background: var(--warning-soft); overflow-wrap: anywhere; }
+.qa-findings li.error { background: var(--negative-soft); }
+.qa-mutants-heading { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; margin-bottom: 8px; }
+.qa-filter-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
+.qa-filter-chips button { border: 1px solid var(--line); background: var(--panel); color: var(--muted); border-radius: 999px; padding: 4px 10px; font-size: 11px; text-transform: capitalize; }
+.qa-filter-chips button.active { border-color: var(--purple); color: var(--purple); background: var(--selected); }
+.qa-mutant { border: 1px solid var(--line); border-radius: 8px; margin-bottom: 8px; background: var(--panel); }
+.qa-mutant summary { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; padding: 10px 12px; cursor: pointer; font-size: 12px; }
+.qa-mutant-title { flex: 1 1 220px; min-width: 0; overflow-wrap: anywhere; }
+.qa-mutant > :not(summary) { margin-left: 12px; margin-right: 12px; }
+.qa-diff { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.qa-diff span { display: block; color: var(--muted); font-size: 11px; margin-bottom: 4px; }
+.qa-diff pre { background: var(--panel-soft); border: 1px solid var(--line); border-radius: 6px; padding: 9px; font-size: 11px; overflow-x: auto; white-space: pre; margin: 0; }
+.qa-tests { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 12px; }
+.qa-tests span { display: inline-flex; align-items: center; gap: 5px; border: 1px solid var(--line); border-radius: 5px; padding: 3px 7px; font-size: 11px; }
+.qa-tests small { color: var(--muted); }
+.qa-equivalence { display: flex; gap: 8px; margin: 10px 12px 12px; flex-wrap: wrap; }
+.qa-equivalence input { flex: 1 1 220px; }
+.qa-mutant .runtime-message { margin: 8px 12px; font-size: 11px; white-space: pre-wrap; }
+.qa-note { font-size: 12px; margin-bottom: 14px; }
+.qa-gate-form { margin-top: 6px; }
+.qa-gate-fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 14px 18px; margin-bottom: 18px; }
+.qa-gate-fields label { text-transform: capitalize; }
+.qa-changed { color: var(--purple); font-size: 10px; text-transform: none; }
+.qa-section { margin-bottom: 18px; min-width: 0; }
+.qa-inline { flex-direction: row; align-items: center; gap: 8px; }
+.qa-inline input { width: 80px; }
+.qa-rates li { display: flex; justify-content: space-between; gap: 12px; padding: 8px 0; border-bottom: 1px solid var(--line); font-size: 12px; }
+.qa-rates strong { font-weight: 500; }
+@media (max-width: 900px) { .qa-grid, .qa-diff { grid-template-columns: 1fr; } }
+@media (max-width: 700px) {
+  .qa-panel-heading { flex-direction: column; }
+  .qa-actions { justify-content: flex-start; }
+  .qa-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .qa-table { min-width: 620px; }
+  .qa-start { align-items: stretch; }
+}

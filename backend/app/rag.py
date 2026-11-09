@@ -13,6 +13,7 @@ from app.documents import DOCUMENTS
 from app.llm import AIUnavailable, complete
 
 log = logging.getLogger(__name__)
+GENERAL = "general"
 
 
 def local_embedding(text):
@@ -29,6 +30,10 @@ def local_embedding(text):
         vector[int.from_bytes(digest[:4], "big") % len(vector)] += 1 if digest[4] & 1 else -1
     norm = math.sqrt(sum(value * value for value in vector)) or 1
     return [value / norm for value in vector]
+
+
+def similarity(a, b):
+    return sum(x * y for x, y in zip(a, b, strict=True))
 
 
 def embed(texts):
@@ -53,6 +58,20 @@ def collection():
                                           metadata={"hnsw:space": "cosine"})
 
 
+def doc_topics(doc) -> list[str]:
+    """Topics as a list; Chroma metadata stores them as one comma-separated string."""
+    topics = doc.get("topics") or []
+    if isinstance(topics, str):
+        topics = topics.split(",")
+    return [topic.strip() for topic in topics if topic and topic.strip()]
+
+
+def document_metadata(doc) -> dict:
+    # Chroma metadata values must be scalars.
+    return {"language": doc["language"], "title": doc["title"], "url": doc["url"],
+            "topics": ",".join(doc_topics(doc)), "source_type": doc.get("source_type") or "official"}
+
+
 def ingest(documents=None):
     documents = documents or DOCUMENTS
     target = collection()
@@ -61,8 +80,37 @@ def ingest(documents=None):
         batch = documents[offset:offset + 16]
         texts = [doc["title"] + ". " + doc["text"] for doc in batch]
         target.upsert(ids=[doc["id"] for doc in batch], documents=texts, embeddings=embed(texts),
-                      metadatas=[{key: doc[key] for key in ("language", "title", "url")} for doc in batch])
+                      metadatas=[document_metadata(doc) for doc in batch])
     return len(documents)
+
+
+def bundled_candidates(query, languages, limit):
+    """Rank the bundled reviewed summaries locally (no Chroma, no model)."""
+    query_vector = local_embedding(query)
+    docs = [{**doc, "topics": doc_topics(doc), "source_type": doc.get("source_type") or "official"}
+            for doc in DOCUMENTS if doc["language"] in languages]
+    docs.sort(key=lambda doc: similarity(query_vector, local_embedding(doc["text"])), reverse=True)
+    return docs[:limit]
+
+
+def retrieve_candidates(query, language, limit=8):
+    """Candidates for adaptive reranking: the language's documents plus language-agnostic references."""
+    languages = [language, GENERAL]
+    try:
+        target = collection()
+        if not target.count():
+            ingest()
+        response = target.query(query_embeddings=embed([query]), n_results=limit,
+                                where={"language": {"$in": languages}}, include=["documents", "metadatas"])
+        ids = response.get("ids", [[]])[0] or [None] * len(response["documents"][0])
+        docs = [{**meta, "id": doc_id or meta.get("url"), "text": text, "topics": doc_topics(meta),
+                 "source_type": meta.get("source_type") or "official"}
+                for doc_id, meta, text in zip(ids, response["metadatas"][0], response["documents"][0], strict=True)]
+        if docs:
+            return docs, "chroma-semantic" if settings.embedding_model else "chroma-lexical"
+    except Exception:
+        log.warning("Chroma retrieval unavailable; using bundled official-documentation summaries")
+    return bundled_candidates(query, languages, limit), "bundled-docs"
 
 
 def retrieve(query, language):
@@ -78,11 +126,7 @@ def retrieve(query, language):
             return docs, "chroma-semantic" if settings.embedding_model else "chroma-lexical"
     except Exception:
         log.warning("Chroma retrieval unavailable; using bundled official-documentation summaries")
-    query_vector = local_embedding(query)
-    docs = [doc for doc in DOCUMENTS if doc["language"] == language]
-    docs.sort(key=lambda doc: sum(a * b for a, b in zip(query_vector, local_embedding(doc["text"]), strict=True)),
-              reverse=True)
-    return docs[:3], "bundled-docs"
+    return bundled_candidates(query, [language], 3), "bundled-docs"
 
 
 def generate_hint(problem, language, level):

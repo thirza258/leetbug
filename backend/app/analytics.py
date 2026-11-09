@@ -30,9 +30,10 @@ def summary(rows):
 
 
 def personal_stats(db, user):
-    rows = list(db.scalars(select(Submission).where(Submission.user_id == user.id)))
+    rows = list(db.scalars(select(Submission).where(Submission.user_id == user.id,
+                                                    Submission.assessment_session_id.is_(None))))
     solved = {row.problem_id for row in rows if row.kind == "submit" and row.status == "passed"}
-    problems = list(db.scalars(select(Problem)))
+    problems = list(db.scalars(select(Problem).where(Problem.visibility == "public")))
     activities = set(db.scalars(select(Activity.day).where(Activity.user_id == user.id)))
     today = now().date()
     cursor = today if today in activities else today - timedelta(days=1)
