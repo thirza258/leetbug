@@ -30,15 +30,19 @@ def fetch_document(client, url, allowed):
 def refresh():
     chunks = []
     allowed = {urlsplit(doc["url"]).hostname for doc in DOCUMENTS}
+    pages = {}
     with httpx.Client(timeout=30, follow_redirects=False, headers={"User-Agent": "LeetBug-docs/1.0"}) as client:
         for doc in DOCUMENTS:
             url = doc["url"].split("#")[0]
-            response = fetch_document(client, url, allowed)
-            soup = BeautifulSoup(response.text, "html.parser")
-            for element in soup(["script", "style", "nav", "header", "footer"]):
-                element.decompose()
-            main = soup.find("main") or soup.find("article") or soup.body or soup
-            text = " ".join(main.stripped_strings)
+            # Several summaries can cite sections of one page (for example RFC 9110); fetch it once.
+            if url not in pages:
+                response = fetch_document(client, url, allowed)
+                soup = BeautifulSoup(response.text, "html.parser")
+                for element in soup(["script", "style", "nav", "header", "footer"]):
+                    element.decompose()
+                main = soup.find("main") or soup.find("article") or soup.body or soup
+                pages[url] = " ".join(main.stripped_strings)
+            text = pages[url]
             for offset in range(0, min(len(text), 80000), 1000):
                 chunk = text[offset:offset + 1200]
                 if len(chunk) < 80:

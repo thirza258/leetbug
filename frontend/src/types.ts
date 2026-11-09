@@ -4,7 +4,7 @@ export type Mode = 'manual' | 'ai';
 export type Status = 'queued' | 'running' | 'passed' | 'failed' | 'runtime_error' | 'time_limit' | 'memory_limit' | 'output_limit' | 'error';
 export interface User { id: string; email: string; username: string; bio: string; created_at: string; is_admin: boolean; }
 export interface Session { user: User | null; csrf_token: string | null }
-export interface Meta { ai_enabled: boolean; ai_provider: string; ai_model: string | null; hint_failure_threshold: number; demo_available: boolean; problem_count: number }
+export interface Meta { ai_enabled: boolean; ai_provider: string; ai_model: string | null; hint_failure_threshold: number; demo_available: boolean; problem_count: number; features?: Record<string, boolean> }
 export interface Page<T> { items: T[]; total: number; page: number; limit: number }
 export interface Problem {
   id: number; slug: string; title: string; summary: string; category: Category;
@@ -13,10 +13,17 @@ export interface Problem {
   acceptance_rate: number | null;
 }
 export interface TestCase { name: string; input: unknown; expected: unknown; assertions: { path: string; equals: unknown }[] }
+export interface TaxonomyLabel { id: string; name: string }
+export interface Assistance { ai: 'disabled' | 'guided' | 'enabled'; hints: 'disabled' | 'restricted' | 'enabled'; source: 'practice' | 'assessment'; assessment_session_id: string | null }
 export interface ProblemDetail extends Problem {
   description: string; requirements: string[]; starters: Partial<Record<Language, string>>;
   public_tests: TestCase[]; hidden_test_count: number; failed_attempts: number; hints_unlocked: boolean;
+  visibility: 'public' | 'incident' | 'assessment' | 'draft'; version: number;
+  diagnosis_mode: 'off' | 'optional' | 'required'; diagnosis_required: boolean;
+  taxonomy: { bug_categories: TaxonomyLabel[]; skills: TaxonomyLabel[] }; assistance: Assistance;
 }
+export interface DiffStats { added: number; removed: number; changed_original_lines: number[]; original_lines: number; current_lines: number; unchanged: boolean }
+export interface PatchQuality { score: number; version: string; dimensions: Record<string, { score: number | null; detail: string }> }
 export interface TestResult {
   name: string; hidden: boolean; status: Status; input?: unknown; expected?: unknown; actual?: unknown;
   message?: string; runtime_ms?: number; assertions?: { path: string; passed: boolean; expected: unknown }[];
@@ -27,6 +34,8 @@ export interface Submission {
   generated_code: string | null; status: Status; results: TestResult[]; error: string | null;
   runtime_ms: number | null; memory_kb: number | null; turnaround_ms: number | null;
   llm_tokens: number | null; prompt_words: number; shared: boolean; created_at: string;
+  attempt_id?: string | null; assessment_session_id?: string | null; diagnosis_id?: string | null;
+  diff_stats?: DiffStats | null; quality?: PatchQuality | null;
 }
 export interface Hint {
   id: string; level: number; status: 'queued' | 'running' | 'completed' | 'error'; text: string | null;

@@ -1,4 +1,4 @@
-import { ArrowUpRight, BarChart3, BookOpen, ChevronRight, CircleHelp, GraduationCap, LayoutGrid, LogOut, Menu, MessageSquare, PenLine, ShieldCheck, Trophy, X } from 'lucide-react';
+import { Activity, ArrowUpRight, BarChart3, BookOpen, Building2, ChevronRight, CircleHelp, ClipboardCheck, FlaskConical, GraduationCap, LayoutGrid, LogOut, Menu, MessageSquare, PenLine, ScrollText, ShieldCheck, Siren, Trophy, X } from 'lucide-react';
 import { NavLink, Outlet, useLocation } from 'react-router-dom';
 import { useState } from 'react';
 import { toast } from 'sonner';
@@ -12,18 +12,33 @@ import ThemeToggle from './ThemeToggle';
 const links = [
   { to: '/', label: 'Problem library', icon: LayoutGrid },
   { to: '/courses', label: 'Courses', icon: GraduationCap },
+  { to: '/incidents', label: 'Incidents', icon: Siren },
+  { to: '/assessments', label: 'Assessments', icon: ClipboardCheck },
   { to: '/progress', label: 'My progress', icon: BarChart3 },
   { to: '/submissions', label: 'Submissions', icon: BookOpen },
   { to: '/leaderboard', label: 'Leaderboard', icon: Trophy },
   { to: '/discussions', label: 'Discussions', icon: MessageSquare },
+  { to: '/organizations', label: 'Organizations', icon: Building2 },
+];
+const adminLinks = [
+  { to: '/admin', label: 'Problem submissions', icon: ShieldCheck },
+  { to: '/admin/quality', label: 'Problem quality', icon: FlaskConical },
+  { to: '/admin/rubrics', label: 'Diagnosis rubrics', icon: ScrollText },
+  { to: '/admin/assessments', label: 'Assessment admin', icon: ClipboardCheck },
+  { to: '/admin/metrics', label: 'Platform health', icon: Activity },
+];
+const sectionTitles: [string, string][] = [
+  ['/problems/', 'Debugging workspace'], ['/courses', 'Courses'], ['/incidents', 'Incidents'],
+  ['/assessment', 'Assessments'], ['/organizations', 'Organizations'], ['/admin', 'Administration'],
 ];
 export default function Layout() {
   const { user, logout } = useAuth();
   const meta = useQuery({ queryKey: ['meta'], queryFn: () => api<Meta>('/meta') });
   const [open, setOpen] = useState(false);
   const location = useLocation();
-  const workspace = location.pathname.startsWith('/problems/');
-  const title = workspace ? 'Debugging workspace' : location.pathname.startsWith('/courses') ? 'Courses' : links.find(link => link.to === location.pathname)?.label || 'Community';
+  const workspace = location.pathname.startsWith('/problems/') || /^\/(incidents\/[^/]+|assessment-sessions\/[^/]+)$/.test(location.pathname);
+  const title = links.find(link => link.to === location.pathname)?.label
+    || sectionTitles.find(([prefix]) => location.pathname.startsWith(prefix))?.[1] || 'Community';
   return <div className={`app-shell ${workspace ? 'workspace-shell' : ''}`}>
     <a href="#main-content" className="skip-link">Skip to content</a>
     {open && <button className="sidebar-backdrop" aria-label="Close navigation" onClick={() => setOpen(false)} />}
@@ -32,7 +47,7 @@ export default function Layout() {
       <span className="nav-label">WORKSPACE</span>
       <nav aria-label="Main navigation">{links.map(({ to, label, icon: Icon }) => <NavLink key={to} to={to} end={to === '/'} onClick={() => setOpen(false)} className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}><Icon size={18} /><span>{label}</span>{to === '/' && <span className="nav-count">{meta.data?.problem_count ?? '—'}</span>}</NavLink>)}
       <NavLink to="/submit-problem" onClick={() => setOpen(false)} className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}><PenLine size={18} /><span>Submit a problem</span></NavLink>
-      {user?.is_admin && <NavLink to="/admin" onClick={() => setOpen(false)} className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}><ShieldCheck size={18} /><span>Admin panel</span></NavLink>}</nav>
+      {user?.is_admin && <><span className="nav-label">ADMIN</span>{adminLinks.map(({ to, label, icon: Icon }) => <NavLink key={to} to={to} end onClick={() => setOpen(false)} className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}><Icon size={18} /><span>{label}</span></NavLink>)}</>}</nav>
       <div className="sidebar-bottom">
         <NavLink to="/guide" className="nav-link" onClick={() => setOpen(false)}><CircleHelp size={18} /><span>Getting started</span></NavLink>
         <div className="sidebar-user">{user ? <><NavLink to="/progress" className="user-link" onClick={() => setOpen(false)}><Avatar name={user.username} /><div><strong>{user.username}</strong><span>Your account</span></div></NavLink><button title="Sign out" aria-label="Sign out" className="icon-button" onClick={() => { logout().catch(error => toast.error(error.message)); }}><LogOut size={16} /></button></> : <NavLink className="button secondary full" to="/login">Sign in / Join LeetBug <ArrowUpRight size={15} /></NavLink>}</div>

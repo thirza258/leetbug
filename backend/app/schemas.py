@@ -20,6 +20,9 @@ class ProfileUpdate(BaseModel):
     bio: str = Field(max_length=280)
 
 
+SessionId = Field(default=None, min_length=36, max_length=36)
+
+
 class SubmissionCreate(BaseModel):
     problem_id: int
     language: Language
@@ -27,10 +30,17 @@ class SubmissionCreate(BaseModel):
     kind: Literal["run", "submit"] = "submit"
     code: str = Field(min_length=1, max_length=50000)
     prompt: str = Field(default="", max_length=4000)
+    # Optional explicit context; an active assessment containing the problem is applied regardless.
+    assessment_session_id: str | None = SessionId
+    incident_session_id: str | None = SessionId
 
 
 class HintCreate(BaseModel):
     language: Language = "python"
+    # Current editor code for context-aware hints (AR-007); never stored after generation.
+    code: str | None = Field(default=None, max_length=50000)
+    assessment_session_id: str | None = SessionId
+    incident_session_id: str | None = SessionId
 
 
 class DiscussionCreate(BaseModel):

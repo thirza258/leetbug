@@ -395,3 +395,10 @@ h1, .page-heading h1 { font-size: 29px; letter-spacing: -.03em; }
   .row-actions .button { font-size: 11px; padding: 7px; gap: 4px; }
   .row-actions .icon-button { padding: 5px; }
 }
+
+/* PRD 2.0 workspace additions */
+.sidebar nav { overflow-y: auto; scrollbar-width: thin; }
+.panel-tabs { overflow-x: auto; scrollbar-width: none; }
+.tab-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--coral); display: inline-block; margin-left: 2px; }
+.assessment-banner { display: flex; align-items: center; gap: 8px; margin: 0 0 18px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 7px; background: var(--selected); color: var(--purple); font-size: 12px; }
+.assessment-banner > svg:last-child { margin-left: auto; flex-shrink: 0; }

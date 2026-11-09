@@ -65,7 +65,8 @@ services:
     environment:
       <<: *backend-env
       DOCKER_HOST: tcp://sandbox-daemon:2375
-    command: [celery, -A, app.tasks.celery, worker, --loglevel=info, --concurrency=2, --max-tasks-per-child=50]
+    # The default queue only: user submissions, hints and AI work. Problem-quality jobs use `quality`.
+    command: [celery, -A, app.tasks.celery, worker, -Q, celery, --loglevel=info, --concurrency=2, --max-tasks-per-child=50]
     networks: [app, execution]
     depends_on:
       migrate: {condition: service_completed_successfully}
@@ -74,6 +75,26 @@ services:
       docs-index: {condition: service_completed_successfully}
     healthcheck:
       test: [CMD-SHELL, "celery -A app.tasks.celery inspect ping -d celery@$$HOSTNAME --timeout 5 | grep -q pong"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+
+  # Mutation testing and problem validation (PRD §7) run one job at a time on their own queue,
+  # so quality runs never delay user submissions.
+  quality-worker:
+    <<: *backend
+    environment:
+      <<: *backend-env
+      DOCKER_HOST: tcp://sandbox-daemon:2375
+    command: [celery, -A, app.tasks.celery, worker, -Q, quality, --concurrency=1, --loglevel=info, -n, "quality@%h", --max-tasks-per-child=50]
+    networks: [app, execution]
+    depends_on:
+      migrate: {condition: service_completed_successfully}
+      redis: {condition: service_healthy}
+      sandbox-build: {condition: service_completed_successfully}
+    healthcheck:
+      test: [CMD-SHELL, "celery -A app.tasks.celery inspect ping -d quality@$$HOSTNAME --timeout 5 | grep -q pong"]
       interval: 30s
       timeout: 10s
       retries: 5
