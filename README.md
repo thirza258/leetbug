@@ -192,3 +192,7 @@ Browser and HTTP smoke tests create uniquely named local test accounts. Catalog 
 - Back up PostgreSQL and the persistent Chroma volume. Redis uses AOF persistence; PostgreSQL remains the durable source of submission state.
 - Inspect errors with `docker compose logs --tail=100 api worker scheduler`. An infrastructure failure produces a persisted service-error attempt and does not count against completion metrics.
 - Do not use `docker compose down -v` unless you intend to delete all application data, models, and the cached execution image.
+
+## License
+
+LeetBug is released under the [MIT License](LICENSE).
